@@ -83,15 +83,15 @@ public partial class Clients: ComponentBase
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
-        if (x.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (x.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (x.Url.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (x.Url?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (x.ContactName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (x.ContactName?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (x.ContactEmail.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (x.ContactEmail?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (x.ContactPhone.Contains(searchString))
+        if (x.ContactPhone?.Contains(searchString) == true)
             return true;
         return false;
     };

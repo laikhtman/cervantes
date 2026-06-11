@@ -88,9 +88,9 @@ public partial class Projects: ComponentBase
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
-        if (element.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.Client.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Client?.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
         if (element.Language.ToString().Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
@@ -107,9 +107,9 @@ public partial class Projects: ComponentBase
     {
         if (string.IsNullOrWhiteSpace(searchStringTemp))
             return true;
-        if (element.Name.Contains(searchStringTemp, StringComparison.OrdinalIgnoreCase))
+        if (element.Name?.Contains(searchStringTemp, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.Client.Name.Contains(searchStringTemp, StringComparison.OrdinalIgnoreCase))
+        if (element.Client?.Name?.Contains(searchStringTemp, StringComparison.OrdinalIgnoreCase) == true)
             return true;
         if (element.Language.ToString().Contains(searchStringTemp, StringComparison.OrdinalIgnoreCase))
             return true;
