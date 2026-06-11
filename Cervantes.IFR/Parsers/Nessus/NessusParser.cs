@@ -41,14 +41,19 @@ public class NessusParser: INessusParser
                 string hostName = "";
                 if(host.Attributes["name"] != null){hostName = host.Attributes["name"].Value; }
                 XmlNode hostPropertiesNode = host.SelectSingleNode("HostProperties");
-                XmlNodeList hostTags = hostPropertiesNode.SelectNodes("tag");
 
                 string os = "";
                 string hostIp = "";
-                foreach (XmlNode tag in hostTags)
+                if (hostPropertiesNode != null)
                 {
-                    if(tag.Attributes["operating-system"] != null){os = tag.Attributes["operating-system"].InnerText;}
-                    if(tag.Attributes["host-ip"] != null){hostIp = tag.Attributes["host-ip"].InnerText;}
+                    // Nessus stores host properties as <tag name="host-ip">value</tag>,
+                    // where the discriminator is the "name" attribute and the value is the element text.
+                    foreach (XmlNode tag in hostPropertiesNode.SelectNodes("tag"))
+                    {
+                        var tagName = tag.Attributes?["name"]?.Value;
+                        if (tagName == "operating-system") { os = tag.InnerText; }
+                        else if (tagName == "host-ip") { hostIp = tag.InnerText; }
+                    }
                 }
                 
                 var tar = targetManager.GetByName(hostName);
@@ -128,9 +133,9 @@ public class NessusParser: INessusParser
                     vuln.Description = "<p>"+sanitizer.Sanitize(HttpUtility.HtmlDecode(description))+"</p>"+ "<p>References: " +"<p>"+sanitizer.Sanitize(HttpUtility.HtmlDecode(refrences))+"</p>";
                     vuln.ProofOfConcept = sanitizer.Sanitize(HttpUtility.HtmlDecode(pluginOutput));
                     vuln.Impact = sanitizer.Sanitize(HttpUtility.HtmlDecode(impact));
-                    if (cvss != "")
+                    if (float.TryParse(cvss, NumberStyles.Float, CultureInfo.InvariantCulture, out var cvss3Score))
                     {
-                        vuln.CVSS3 = float.Parse(cvss,CultureInfo.InvariantCulture);
+                        vuln.CVSS3 = cvss3Score;
                     }
                     else
                     {
@@ -241,9 +246,9 @@ public class NessusParser: INessusParser
                     vuln.Description = "<p>"+sanitizer.Sanitize(HttpUtility.HtmlDecode(description))+"</p>"+ "<p>References: " +"<p>"+sanitizer.Sanitize(HttpUtility.HtmlDecode(refrences))+"</p>";
                     vuln.ProofOfConcept = sanitizer.Sanitize(HttpUtility.HtmlDecode(pluginOutput));
                     vuln.Impact = sanitizer.Sanitize(HttpUtility.HtmlDecode(impact));
-                    if (cvss != "")
+                    if (float.TryParse(cvss, NumberStyles.Float, CultureInfo.InvariantCulture, out var cvss3Score))
                     {
-                        vuln.CVSS3 = float.Parse(cvss,CultureInfo.InvariantCulture);
+                        vuln.CVSS3 = cvss3Score;
                     }
                     else
                     {
