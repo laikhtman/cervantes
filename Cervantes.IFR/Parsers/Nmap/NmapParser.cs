@@ -42,16 +42,25 @@ public class NmapParser: INmapParser
         foreach (var host in hosts)
         {
             var status = host.Element("status");
-            
-            if ( status.Attribute("state").Value != "up"){
-               continue;
+
+            if (status?.Attribute("state")?.Value != "up")
+            {
+                continue;
             }
 
-            var address = host.Element("address");
-            
+            // A host can expose several <address> elements (e.g. IPv4 + MAC); prefer a non-MAC one.
+            var address = host.Elements("address")
+                              .FirstOrDefault(a => a.Attribute("addrtype")?.Value != "mac")
+                          ?? host.Element("address");
+            var addr = address?.Attribute("addr")?.Value;
+            if (string.IsNullOrEmpty(addr))
+            {
+                continue;
+            }
+
             Target target = new Target
             {
-                Name = sanitizer.Sanitize(HttpUtility.HtmlDecode(address.Attribute("addr").Value)),
+                Name = sanitizer.Sanitize(HttpUtility.HtmlDecode(addr)),
                 Description = "Imported from Nmap",
                 Type = TargetType.IP,
                 ProjectId = project,
@@ -67,8 +76,12 @@ public class NmapParser: INmapParser
             foreach (var port in servport)
             {
                 
-                var number = port.Attribute("portid").Value;
-                var protocol = port.Attribute("protocol").Value;
+                var number = port.Attribute("portid")?.Value;
+                if (string.IsNullOrEmpty(number))
+                {
+                    continue;
+                }
+                var protocol = port.Attribute("protocol")?.Value ?? "";
 
                 var service = port.Element("service");
 
@@ -137,7 +150,7 @@ public class NmapParser: INmapParser
                     TargetId = target.Id,
                     Name = sanitizer.Sanitize(HttpUtility.HtmlDecode(product)) + " (" + sanitizer.Sanitize(HttpUtility.HtmlDecode(name)) +")",
                     Description = sanitizer.Sanitize(HttpUtility.HtmlDecode(info)) + Environment.NewLine + sanitizer.Sanitize(HttpUtility.HtmlDecode(sb.ToString())),
-                    Port = Int32.Parse(number),
+                    Port = int.TryParse(number, out var portNumber) ? portNumber : 0,
                     Version =sanitizer.Sanitize(HttpUtility.HtmlDecode(version)),
                     Note = "Imported from Nmap"
                     

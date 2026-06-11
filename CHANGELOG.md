@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Hardened the Nmap parser (`NmapParser`) against `NullReferenceException` on valid scan
+  output: hosts missing a `status` element, hosts with no usable `address` (now preferring a
+  non-MAC address), and ports missing `portid` are skipped gracefully instead of aborting the
+  import, and the port number is parsed with `int.TryParse`. ([#11](https://github.com/laikhtman/cervantes/issues/11))
 - Hardened the Nessus parser (`NessusParser`) against import-aborting crashes and wrong host
   data: it no longer throws when a `ReportHost` has no `HostProperties`; CVSS scores are parsed
   with `float.TryParse` (a non-numeric `cvss3_base_score` no longer throws `FormatException`);
