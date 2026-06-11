@@ -27,22 +27,43 @@ public class CveMatchingService : ICveMatchingService
     {
         "server", "service", "services", "system", "software", "framework", "library", "module",
         "the", "for", "and", "project", "edition", "community", "professional", "enterprise",
-        "standard", "app", "application", "daemon", "client", "tool", "tools"
+        "standard", "app", "application", "daemon", "client", "tool", "tools",
+        "web", "cms", "plugin", "plugins"
     };
 
     // Service-banner token -> canonical CPE product tokens. Bridges the most common mismatches
     // between scanner banners and NVD CPE product names.
     private static readonly Dictionary<string, string[]> ProductAliases = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Web servers / app servers
         ["httpd"] = new[] { "http", "server" },
         ["apache2"] = new[] { "http", "server" },
         ["iis"] = new[] { "internet", "information", "services" },
+        ["coyote"] = new[] { "tomcat" },          // Apache-Coyote banner
+        ["litespeed"] = new[] { "litespeed", "web", "server" },
+        // SSH / remote
+        ["sshd"] = new[] { "openssh" },
+        // Databases
         ["postgres"] = new[] { "postgresql" },
         ["mysqld"] = new[] { "mysql" },
+        ["mariadbd"] = new[] { "mariadb" },
+        ["mongod"] = new[] { "mongodb" },
+        ["mssql"] = new[] { "sql", "server" },
+        ["sqlserver"] = new[] { "sql", "server" },
+        // Runtimes
         ["nodejs"] = new[] { "node", "js" },
+        // DNS
         ["bind9"] = new[] { "bind" },
+        ["named"] = new[] { "bind" },
+        // Mail
         ["exim4"] = new[] { "exim" },
-        ["named"] = new[] { "bind" }
+        // File sharing / network services
+        ["smbd"] = new[] { "samba" },
+        ["nmbd"] = new[] { "samba" },
+        ["dhcpd"] = new[] { "dhcp" },
+        ["ntpd"] = new[] { "ntp" },
+        ["chronyd"] = new[] { "chrony" },
+        ["snmpd"] = new[] { "net", "snmp" }
     };
 
     public CveMatchingService(
