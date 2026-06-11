@@ -229,6 +229,52 @@
 					</MudTabPanel>
 				}
 
+					@* CVE Exposure Tab *@
+					@if (userAth.HasPermission(Permissions.CveRead))
+					{
+						<MudTabPanel Text="@localizer["cveExposure"]" Icon="@Icons.Material.Filled.Security"
+									 BadgeData="@(exposures.Count == 0 ? null : (object)exposures.Count)" BadgeColor="Color.Error">
+							<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+								@if (userAth.HasPermission(Permissions.TargetsEdit) && exposureEnabled)
+								{
+									<MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+											   StartIcon="@Icons.Material.Filled.Radar" Disabled="@exposureScanning"
+											   OnClick="@ScanExposure">@localizer["scanExposure"]</MudButton>
+								}
+							</MudStack>
+							@if (exposures.Count == 0)
+							{
+								<MudText Typo="Typo.body2">@localizer["noExposure"]</MudText>
+							}
+							else
+							{
+								<MudDataGrid T="Cervantes.CORE.ViewModel.CveExposureViewModel" Items="@exposures" Dense="true" Hover="true" Filterable="true">
+									<Columns>
+										<PropertyColumn Property="x => x.CveIdentifier" Title="@localizer["cveId"]">
+											<CellTemplate>
+												<MudLink Href="@($"/cve/{context.Item.CveId}")" Color="Color.Primary">@context.Item.CveIdentifier</MudLink>
+											</CellTemplate>
+										</PropertyColumn>
+										<PropertyColumn Property="x => x.Severity" Title="@localizer["severity"]"/>
+										<PropertyColumn Property="x => x.ServiceName" Title="@localizer["service"]"/>
+										<PropertyColumn Property="x => x.Confidence" Title="@localizer["confidence"]">
+											<CellTemplate>@context.Item.Confidence.ToString("0.00")</CellTemplate>
+										</PropertyColumn>
+										<TemplateColumn Title="@localizer["actions"]" Sortable="false">
+											<CellTemplate>
+												@if (userAth.HasPermission(Permissions.TargetsEdit))
+												{
+													<MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
+																   OnClick="@(() => DismissExposure(context.Item))" Title="@localizer["dismiss"]"/>
+												}
+											</CellTemplate>
+										</TemplateColumn>
+									</Columns>
+								</MudDataGrid>
+							}
+						</MudTabPanel>
+					}
+
 			</MudTabs>
 
 		}

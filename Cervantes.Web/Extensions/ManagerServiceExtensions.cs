@@ -96,6 +96,7 @@ public static class ManagerServiceExtensions
         services.AddScoped<IProjectAttachmentManager, ProjectAttachmentManager>();
         services.AddScoped<ITargetManager, TargetManager>();
         services.AddScoped<ITargetServicesManager, TargetServicesManager>();
+        services.AddScoped<ITargetServiceCveManager, TargetServiceCveManager>();
         services.AddScoped<ITaskManager, TaskManager>();
         services.AddScoped<ITaskNoteManager, TaskNoteManager>();
         services.AddScoped<ITaskTargetManager, TaskTargetManager>();

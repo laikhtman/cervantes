@@ -483,5 +483,21 @@ else
     RecurringJob.RemoveIfExists("SubdomainEnumeration");
 }
 
+// Scheduled CVE exposure scan + alerting (opt-in: requires Enabled + ScheduledEnabled).
+var cveExposureConfig = builder.Configuration.GetSection("CveExposureConfiguration").Get<Cervantes.IFR.CveServices.CveExposureConfiguration>()
+                        ?? new Cervantes.IFR.CveServices.CveExposureConfiguration();
+if (cveExposureConfig.Enabled && cveExposureConfig.ScheduledEnabled)
+{
+    var cveExposureSchedule = string.IsNullOrWhiteSpace(cveExposureConfig.Schedule) ? "0 4 * * *" : cveExposureConfig.Schedule;
+    RecurringJob.AddOrUpdate<Cervantes.Web.Services.ICveExposureAlertService>(
+        "CveExposureScan",
+        x => x.RunScheduledAsync(CancellationToken.None),
+        cveExposureSchedule);
+}
+else
+{
+    RecurringJob.RemoveIfExists("CveExposureScan");
+}
+
 
 app.Run();

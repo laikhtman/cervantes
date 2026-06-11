@@ -515,7 +515,40 @@ namespace Cervantes.DAL;
             .WithMany()
             .HasForeignKey(cpm => cpm.ProjectId)
             .OnDelete(DeleteBehavior.Cascade);
-            
+
+        // Target-service to CVE correlation (exposure) records.
+        modelBuilder.Entity<TargetServiceCve>()
+            .HasKey(tsc => tsc.Id);
+
+        modelBuilder.Entity<TargetServiceCve>()
+            .HasOne(tsc => tsc.TargetService)
+            .WithMany()
+            .HasForeignKey(tsc => tsc.TargetServiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TargetServiceCve>()
+            .HasOne(tsc => tsc.Target)
+            .WithMany()
+            .HasForeignKey(tsc => tsc.TargetId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TargetServiceCve>()
+            .HasOne(tsc => tsc.Cve)
+            .WithMany()
+            .HasForeignKey(tsc => tsc.CveId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TargetServiceCve>()
+            .HasOne(tsc => tsc.CveConfiguration)
+            .WithMany()
+            .HasForeignKey(tsc => tsc.CveConfigurationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // One match per (service, CVE).
+        modelBuilder.Entity<TargetServiceCve>()
+            .HasIndex(tsc => new { tsc.TargetServiceId, tsc.CveId })
+            .IsUnique();
+
         modelBuilder.Entity<CveSubscription>()
             .HasKey(cs => cs.Id);
             
@@ -647,6 +680,11 @@ namespace Cervantes.DAL;
     /// Table for CVE to project mappings
     /// </summary>
     public DbSet<CveProjectMapping> CveProjectMappings { get; set; }
+
+    /// <summary>
+    /// Table for target-service to CVE correlation (exposure) records
+    /// </summary>
+    public DbSet<TargetServiceCve> TargetServiceCves { get; set; }
     
     /// <summary>
     /// Table for CVE subscriptions

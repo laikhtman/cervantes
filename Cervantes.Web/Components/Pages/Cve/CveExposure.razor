@@ -1,0 +1,103 @@
+@page "/cve-exposure"
+@using Cervantes.CORE
+@using Cervantes.CORE.Entities
+@using Cervantes.CORE.ViewModel
+@using Cervantes.Web.Components.Layout
+@using Cervantes.Web.Localization
+@using global::AuthPermissions.AspNetCore
+@using global::AuthPermissions.BaseCode.PermissionsCode
+@using Microsoft.Extensions.Localization
+@inject IDialogService DialogService
+@inject IStringLocalizer<Resource> localizer
+@layout MainLayout
+@inject NavigationManager navigationManager
+@attribute [HasPermission(Permissions.CveRead)]
+@inject AuthenticationStateProvider authenticationStateProvider
+
+<PageTitle>@localizer["cveExposure"] | Cervantes</PageTitle>
+<SectionContent SectionName="appbar">
+    <Cervantes.Web.Components.Shared.Breadcrumbs Items="@_items" Separator=">" />
+</SectionContent>
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudDataGrid T="CveExposureViewModel" Items="@FilteredModel" SortMode="SortMode.Multiple" Filterable="true"
+                     QuickFilter="_quickFilter" Hideable="true" Hover="true" Dense="true" Loading="@loading" Virtualize="true">
+            <ToolBarContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.h6">@localizer["cveExposure"]</MudText>
+                    @if (userAth != null && userAth.HasPermission(Permissions.TargetsEdit) && exposureEnabled)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Radar"
+                                   Disabled="@scanning" OnClick="@ScanAll">@localizer["scanAllExposure"]</MudButton>
+                    }
+                    <MudSelect T="Guid?" Value="selectedProject" ValueChanged="OnProjectChanged" Clearable="true"
+                               Placeholder="@localizer["allProjects"]" Class="mt-0" Style="min-width: 200px;" Dense="true">
+                        @foreach (var p in projects)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" @bind-Value="severityFilter" Clearable="true" Placeholder="@localizer["severity"]"
+                               Class="mt-0" Style="min-width: 140px;" Dense="true">
+                        <MudSelectItem T="string" Value="@("CRITICAL")">CRITICAL</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("HIGH")">HIGH</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("MEDIUM")">MEDIUM</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("LOW")">LOW</MudSelectItem>
+                    </MudSelect>
+                    <MudCheckBox T="bool" @bind-Value="kevOnly" Label="@localizer["kev"]" Dense="true" />
+                </MudStack>
+                <MudSpacer/>
+                <MudTextField @bind-Value="searchString" Placeholder="@localizer["search"]" Adornment="Adornment.Start" Immediate="true"
+                              AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"/>
+            </ToolBarContent>
+            <Columns>
+                <PropertyColumn Property="x => x.CveIdentifier" Title="@localizer["cveId"]">
+                    <CellTemplate>
+                        <MudLink Href="@($"/cve/{context.Item.CveId}")" Color="Color.Primary">@context.Item.CveIdentifier</MudLink>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Severity" Title="@localizer["severity"]">
+                    <CellTemplate>
+                        <MudChip T="string" Color="@SeverityColor(context.Item.Severity)" Size="Size.Small">@context.Item.Severity</MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.IsKnownExploited" Title="@localizer["kev"]">
+                    <CellTemplate>
+                        @if (context.Item.IsKnownExploited)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Title="@localizer["kev"]"/>
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.TargetName" Title="@localizer["target"]"/>
+                <PropertyColumn Property="x => x.ServiceName" Title="@localizer["service"]">
+                    <CellTemplate>
+                        <MudText Typo="Typo.body2">@context.Item.ServiceName @context.Item.ServiceVersion</MudText>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.ProjectName" Title="@localizer["project"]"/>
+                <PropertyColumn Property="x => x.Confidence" Title="@localizer["confidence"]">
+                    <CellTemplate>
+                        <MudChip T="string" Color="@ConfidenceColor(context.Item.Confidence)" Size="Size.Small">
+                            @context.Item.Confidence.ToString("0.00")
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.MatchType" Title="@localizer["matchType"]"/>
+                <TemplateColumn Title="@localizer["actions"]" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        @if (userAth != null && userAth.HasPermission(Permissions.TargetsEdit))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
+                                           OnClick="@(() => Dismiss(context.Item))" Title="@localizer["dismiss"]"/>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="CveExposureViewModel"/>
+            </PagerContent>
+        </MudDataGrid>
+    </MudItem>
+</MudGrid>

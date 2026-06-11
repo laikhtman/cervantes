@@ -264,6 +264,42 @@
     <data name="subdomainDiscoveryError" xml:space="preserve">
         <value>An error occurred while discovering subdomains</value>
     </data>
+    <data name="cveExposure" xml:space="preserve">
+        <value>CVE Exposure</value>
+    </data>
+    <data name="scanAllExposure" xml:space="preserve">
+        <value>Scan all for CVE exposure</value>
+    </data>
+    <data name="scanExposure" xml:space="preserve">
+        <value>Scan for CVE exposure</value>
+    </data>
+    <data name="confidence" xml:space="preserve">
+        <value>Confidence</value>
+    </data>
+    <data name="matchType" xml:space="preserve">
+        <value>Match type</value>
+    </data>
+    <data name="service" xml:space="preserve">
+        <value>Service</value>
+    </data>
+    <data name="dismiss" xml:space="preserve">
+        <value>Dismiss</value>
+    </data>
+    <data name="affectedCves" xml:space="preserve">
+        <value>Affected by CVEs</value>
+    </data>
+    <data name="noExposure" xml:space="preserve">
+        <value>No CVE exposure found</value>
+    </data>
+    <data name="cveExposureError" xml:space="preserve">
+        <value>An error occurred during CVE exposure analysis</value>
+    </data>
+    <data name="cveExposureScanComplete" xml:space="preserve">
+        <value>CVE exposure scan complete</value>
+    </data>
+    <data name="cveExposureDismissed" xml:space="preserve">
+        <value>Match dismissed</value>
+    </data>
     <data name="addTarget" xml:space="preserve">
         <value>Add Target</value>
     </data>

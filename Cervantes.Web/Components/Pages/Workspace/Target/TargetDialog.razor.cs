@@ -41,6 +41,11 @@ public partial class TargetDialog: ComponentBase
    
    // Custom fields
    private List<TargetCustomFieldValueViewModel> targetCustomFieldValues = new List<TargetCustomFieldValueViewModel>();
+
+   // CVE exposure
+   private List<CveExposureViewModel> exposures = new List<CveExposureViewModel>();
+   private bool exposureEnabled;
+   private bool exposureScanning;
     
     private Dictionary<string, object> editorConf = new Dictionary<string, object>{
                 {"plugins", "preview importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media codesample table charmap pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help charmap quickbars emoticons"},
@@ -133,8 +138,45 @@ public partial class TargetDialog: ComponentBase
             inProject = await _ProjectController.VerifyUser(target.ProjectId.Value);
         }
         await LoadCustomFields();
+        exposureEnabled = _TargetController.IsCveExposureEnabled();
+        // Tab visibility is permission-gated in markup; loading the list here is harmless.
+        exposures = _TargetController.GetTargetCveExposureList(target.Id);
     }
-    
+
+    private async Task ScanExposure()
+    {
+        exposureScanning = true;
+        StateHasChanged();
+        try
+        {
+            var result = await _TargetController.RunTargetCveExposureScan(target.Id);
+            exposures = _TargetController.GetTargetCveExposureList(target.Id);
+            Snackbar.Add(
+                $"{localizer["cveExposureScanComplete"]} — {result.Created} new, {result.Updated} updated",
+                Severity.Success);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add(localizer["cveExposureError"], Severity.Error);
+        }
+        finally
+        {
+            exposureScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DismissExposure(CveExposureViewModel item)
+    {
+        var ok = await _TargetController.DismissCveExposureMatch(item.Id);
+        if (ok)
+        {
+            exposures.Remove(item);
+            Snackbar.Add(localizer["cveExposureDismissed"], Severity.Success);
+            StateHasChanged();
+        }
+    }
+
     private async Task LoadCustomFields()
     {
         try

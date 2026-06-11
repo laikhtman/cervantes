@@ -7,6 +7,7 @@ using Cervantes.IFR.Ldap;
 using Cervantes.IFR.CveServices;
 using Cervantes.IFR.Subdomain;
 using Cervantes.Contracts;
+using Cervantes.Web.Services;
 
 namespace Cervantes.Web.Extensions;
 
@@ -155,7 +156,14 @@ public static class ExternalServiceExtensions
         
         // Register CVE services
         services.AddScoped<ICveSyncService, CveSyncService>();
-        
+        services.AddScoped<ICveMatchingService, CveMatchingService>();
+
+        // CVE exposure (target-service correlation + alerting)
+        var exposureConfig = configuration.GetSection("CveExposureConfiguration").Get<CveExposureConfiguration>()
+                             ?? new CveExposureConfiguration();
+        services.AddSingleton<ICveExposureConfiguration>(exposureConfig);
+        services.AddHttpClient<ICveExposureAlertService, CveExposureAlertService>();
+
         // Register VulnEnrichment services
         services.AddHttpClient<IEpssApiService, EpssApiService>();
         services.AddHttpClient<ICisaKevApiService, CisaKevApiService>(); 

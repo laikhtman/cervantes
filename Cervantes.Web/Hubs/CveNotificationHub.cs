@@ -271,4 +271,33 @@ public static class CveNotificationHubExtensions
 
         await hubContext.Clients.Group($"criteria_{criteria}").SendAsync("NewNotification", notificationData);
     }
+
+    /// <summary>
+    /// Send a real-time CVE exposure alert (a target affected by a CVE) to a user.
+    /// Reuses the existing "NewNotification" client event so the bell UI updates live.
+    /// </summary>
+    public static async Task SendExposureAlertToUser(
+        this IHubContext<CveNotificationHub> hubContext,
+        string userId, Guid notificationId, string title, string message,
+        string priority, string cveIdentifier, string severity, bool isKnownExploited)
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+
+        var notificationData = new
+        {
+            id = notificationId,
+            title,
+            message,
+            priority,
+            notificationType = "CveExposure",
+            isRead = false,
+            createdDate = DateTime.UtcNow,
+            cveId = cveIdentifier,
+            cveTitle = title,
+            cvssSeverity = severity,
+            isKnownExploited
+        };
+
+        await hubContext.Clients.Group($"user_{userId}").SendAsync("NewNotification", notificationData);
+    }
 }
