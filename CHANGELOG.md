@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed a `NullReferenceException` that made valid logins return HTTP 500.
+  `AccountController` declared an `IHttpContextAccessor` field but never received or
+  assigned it in the constructor, so it was always null; `Login` then dereferenced it
+  while writing the audit record (after sign-in had already succeeded). The accessor is
+  now injected via the constructor, matching the other controllers. ([#5](https://github.com/laikhtman/cervantes/issues/5))
+
 ### Security
 
 - Fixed broken access control in `ReportController.GetByProject`: the project-membership
