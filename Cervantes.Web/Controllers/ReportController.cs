@@ -187,16 +187,11 @@ public class ReportController : ControllerBase
             if (model != null)
             {
                 var user = projectUserManager.VerifyUser(id, aspNetUserId);
-                /*
                 if (user == null)
                 {
-                    return model = new List<Report>();
+                    return new List<CORE.Entities.Report>();
                 }
-                */
-                
-                
-                
-                
+
                 return model;
 
             }
