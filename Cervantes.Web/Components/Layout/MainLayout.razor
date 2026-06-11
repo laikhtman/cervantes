@@ -22,6 +22,8 @@
 @using Microsoft.AspNetCore.Antiforgery
 @using UriComponents = System.UriComponents
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using Cervantes.Contracts
+@inject IOrganizationManager OrganizationManager
 
 <MudThemeProvider Theme="CervantesTheme.Theme" @ref="@_mudThemeProvider" @bind-IsDarkMode="@_isDarkMode"/>
 <MudPopoverProvider />
@@ -191,7 +193,11 @@
                 <MudDrawerHeader LinkToIndex="true" Class="center-image">
                     @if (_drawerOpen)
                     {
-                        @if (_isDarkMode)
+                        @if (!string.IsNullOrEmpty(orgLogoPath))
+                        {
+                            <MudImage Src="@orgLogoPath" Fluid="true" Height="25" Width="200" ObjectFit="ObjectFit.ScaleDown"></MudImage>
+                        }
+                        else if (_isDarkMode)
                         {
                             <MudImage Src="img/logo-horizontal.png" Fluid="true" Height="25" Width="200"></MudImage>
 
@@ -203,7 +209,7 @@
                     }
                     else
                     {
-                    <MudImage Class="mud-nav-link-icon" Src="img/logo.png" Height="40" Width="40"></MudImage>
+                    <MudImage Class="mud-nav-link-icon" Src="@(string.IsNullOrEmpty(orgLogoPath) ? "img/logo.png" : orgLogoPath)" Height="40" Width="40" ObjectFit="ObjectFit.ScaleDown"></MudImage>
                     }
                 </MudDrawerHeader>
                 @if (IsWorkspacePage)
@@ -295,11 +301,27 @@
     private void OpenSearchDialog() => _searchDialogOpen = true;
     private DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, Position = DialogPosition.TopCenter, NoHeader = true };
 
+    private string orgLogoPath;
+
     protected async override Task OnInitializedAsync()
     {
         searchViewModel = new SearchViewModel();
         await LoadDataAsync();
+        LoadOrgLogo();
         await base.OnInitializedAsync();
+    }
+
+    private void LoadOrgLogo()
+    {
+        // The logo is cosmetic: fall back to the bundled images rather than break the layout.
+        try
+        {
+            orgLogoPath = OrganizationManager.GetAll().FirstOrDefault()?.ImagePath;
+        }
+        catch
+        {
+            orgLogoPath = null;
+        }
     }
 
     

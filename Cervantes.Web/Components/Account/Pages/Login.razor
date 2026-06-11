@@ -19,6 +19,7 @@
 @inject IStringLocalizer<Resource> localizer
 @inject ISnackbar Snackbar
 @inject IAuditManager AuditManager
+@inject IOrganizationManager OrganizationManager
 @inject IHttpContextAccessor HttpContextAccessor
 
 
@@ -30,7 +31,7 @@
     <MudStack>
     <MudItem xs="12">
         <div class="d-flex justify-center">
-            <img src="img/logo.png" Style="width: 100px; height: 100px;"/>
+            <img src="@(string.IsNullOrEmpty(orgLogoPath) ? "img/logo.png" : orgLogoPath)" Style="width: 100px; height: 100px; object-fit: scale-down;"/>
         </div>
     </MudItem>
 
@@ -131,6 +132,7 @@
 
 @code {
     private string? errorMessage;
+    private string? orgLogoPath;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -143,13 +145,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-       
+
         if (HttpMethods.IsGet(HttpContext.Request.Method))
         {
     // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
         }
-        
+
+        // The logo is cosmetic: fall back to the bundled image rather than block the login page.
+        try
+        {
+            orgLogoPath = OrganizationManager.GetAll().FirstOrDefault()?.ImagePath;
+        }
+        catch
+        {
+            orgLogoPath = null;
+        }
     }
 
     public async Task LoginUser()

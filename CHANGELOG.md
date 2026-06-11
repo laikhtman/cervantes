@@ -34,6 +34,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The uploaded **Organization logo** is now actually displayed by the application. The
+  navigation drawer headers in `MainLayout` and `WorkspaceLayout` and the `Login`/`LdapLogin`
+  pages were hardcoded to the bundled `img/logo*.png` assets and never bound to
+  `Organization.ImagePath`, so uploading a logo in Admin → Organization only changed the
+  admin-page preview. These views now use the configured logo when one is set and fall back
+  to the bundled images (including the dark/light horizontal variants) when not.
+  ([#15](https://github.com/laikhtman/cervantes/issues/15))
 - Audit records for inserted rows now record the acting user's id. The `EntityState.Added`
   branch in `ApplicationDbContext.BeforeSaveChanges` gated the assignment on
   `auditEntry.UserId != null`, which is always false at that point, so inserts were always
