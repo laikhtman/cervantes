@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed a `NullReferenceException` (HTTP 500) in `JiraController.GetCommentsByVuln` when a
+  vuln has no linked Jira issue. `FirstOrDefault` could return null and `jira.Id` was then
+  dereferenced; the endpoint now returns an empty list for vulns without a Jira issue. ([#6](https://github.com/laikhtman/cervantes/issues/6))
 - Fixed a `NullReferenceException` that made valid logins return HTTP 500.
   `AccountController` declared an `IHttpContextAccessor` field but never received or
   assigned it in the constructor, so it was always null; `Login` then dereferenced it
