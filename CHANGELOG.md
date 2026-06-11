@@ -17,6 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- Fixed missing authorization and IDOR in `ChatController` (AI chat): the controller now
+  carries `[ApiController]`, `[Route("api/[controller]")]`, `[Authorize]` and per-action
+  `[HasPermission(Permissions.AIChatUsage)]` attributes like its siblings, and every
+  per-chat action (`GetMessages`, `EditChat`, `DeleteChat`, and `AddMessage`) verifies the
+  chat belongs to the requesting user before acting — previously any authenticated user could
+  read, rename, delete, or post into another user's AI chat by id. The constructor's user-claim
+  lookup is also null-guarded so unauthenticated requests no longer throw
+  `NullReferenceException`. ([#3](https://github.com/laikhtman/cervantes/issues/3))
 - Fixed LDAP filter injection on the authentication path: the username from the login form
   (and the user DN used for group lookups) were interpolated into LDAP search filters via
   `string.Format` without escaping. `LdapService` now escapes `\ * ( )` and NUL per RFC 4515

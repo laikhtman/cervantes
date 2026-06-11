@@ -1,9 +1,12 @@
 using System.Security.Claims;
+using AuthPermissions.AspNetCore;
 using Cervantes.Contracts;
+using Cervantes.CORE;
 using Cervantes.CORE.Entities;
 using Cervantes.CORE.ViewModel;
 using Cervantes.IFR.CervantesAI;
 using Cervantes.Web.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel.Services;
@@ -11,6 +14,9 @@ using Markdig;
 
 namespace Cervantes.Web.Controllers;
 
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
 public class ChatController : ControllerBase
 {
     private readonly ILogger<ChatController> _logger = null;
@@ -32,20 +38,30 @@ public class ChatController : ControllerBase
         this.chatMessageManager = chatMessageManager;
         this.env = env;
         _logger = logger;
-        aspNetUserId = HttpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
+        aspNetUserId = HttpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         this.Sanitizer = Sanitizer;
         this._aiService = _aiService;
         this.documentManager = documentManager;
         this.projectManager = projectManager;
     }
     
+    [HttpGet]
+    [HasPermission(Permissions.AIChatUsage)]
     public IEnumerable<Chat> GetChats()
     {
         return chatManager.GetAll().Where(x => x.UserId == aspNetUserId);
     }
-    
+
+    [HttpGet("{chatId:guid}/messages")]
+    [HasPermission(Permissions.AIChatUsage)]
     public IEnumerable<ChatMessageViewModel> GetMessages(Guid chatId)
     {
+        var chat = chatManager.GetById(chatId);
+        if (chat == null || chat.UserId != aspNetUserId)
+        {
+            return new List<ChatMessageViewModel>();
+        }
+
         var messages = chatMessageManager.GetAll().Where(x => x.ChatId == chatId);
         var chatMessages = new List<ChatMessageViewModel>();
         foreach (var item in messages)
@@ -63,6 +79,8 @@ public class ChatController : ControllerBase
         return chatMessages;
     }
     
+    [HttpPost]
+    [HasPermission(Permissions.AIChatUsage)]
     public async Task<Chat> CreateChat(CreateChatViewModel model)
     {
         var chat = new Chat
@@ -97,26 +115,30 @@ public class ChatController : ControllerBase
         return chat;
     }
     
+    [HttpPut("{chatId:guid}")]
+    [HasPermission(Permissions.AIChatUsage)]
     public async Task<Chat> EditChat(Guid chatId, string title)
     {
         var chat = chatManager.GetById(chatId);
-        if (chat == null)
+        if (chat == null || chat.UserId != aspNetUserId)
         {
             return null;
         }
-        
+
         chat.Title = title;
 
         await chatManager.Context.SaveChangesAsync();
         return chat;
     }
     
+    [HttpDelete("{chatId:guid}")]
+    [HasPermission(Permissions.AIChatUsage)]
     public async Task<bool> DeleteChat(Guid chatId)
     {
         try
         {
             var chat = chatManager.GetById(chatId);
-            if (chat == null)
+            if (chat == null || chat.UserId != aspNetUserId)
             {
                 return false;
             }
@@ -138,10 +160,18 @@ public class ChatController : ControllerBase
         }
     }
     
+    [HttpPost("messages")]
+    [HasPermission(Permissions.AIChatUsage)]
     public async Task<ChatMessageViewModel> AddMessage(ChatMessageCreateViewModel model)
     {
         try{
-            
+
+        var chat = chatManager.GetById(model.ChatId);
+        if (chat == null || chat.UserId != aspNetUserId)
+        {
+            return null;
+        }
+
         var index = chatMessageManager.GetAll().Count(x => x.ChatId == model.ChatId);
         var chatMessage = new ChatMessage()
         {
@@ -169,8 +199,7 @@ public class ChatController : ControllerBase
             MessageIndex = index+2
         };
         await chatMessageManager.AddAsync(chatMessage2);
-        
-        var chat = chatManager.GetById(model.ChatId);
+
         chat.LastMessageAt = DateTime.UtcNow;
         await chatManager.Context.SaveChangesAsync();
         await chatMessageManager.Context.SaveChangesAsync();
