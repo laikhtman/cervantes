@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Audit records for inserted rows now record the acting user's id. The `EntityState.Added`
+  branch in `ApplicationDbContext.BeforeSaveChanges` gated the assignment on
+  `auditEntry.UserId != null`, which is always false at that point, so inserts were always
+  logged with a null `UserId`. The user id is now read from the HTTP context claims, the same
+  way the `Deleted` and `Modified` branches do (this also avoids a crash for entities without
+  a `CreatedBy` property). ([#9](https://github.com/laikhtman/cervantes/issues/9))
 - Fixed `ChecklistExecutionManager.BulkUpdateStatus` firing `SaveChangesAsync()` without
   awaiting it once per affected checklist: `UpdateChecklistCompletion` is now `async Task`,
   every call (and the save inside it) is awaited, eliminating concurrent operations on the
