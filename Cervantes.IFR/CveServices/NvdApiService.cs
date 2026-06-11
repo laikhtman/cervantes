@@ -400,7 +400,94 @@ public class NvdApiService : INvdApiService
             }
         }
 
+        // Map affected-product CPE configurations (used by the CVE exposure matcher).
+        AddConfigurations(cve, nvdCveItem, userId);
+
         return cve;
+    }
+
+    /// <summary>
+    /// Translate the NVD configurations/cpeMatch graph into CveConfiguration rows on the CVE.
+    /// Parses the CPE 2.3 criteria for vendor/product/version and copies version-range bounds.
+    /// </summary>
+    public static void AddConfigurations(Cve cve, NvdCveItem nvdCveItem, string userId)
+    {
+        if (nvdCveItem.Configurations == null)
+        {
+            return;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var configuration in nvdCveItem.Configurations)
+        {
+            foreach (var node in configuration.Nodes ?? new List<NvdConfigurationNode>())
+            {
+                foreach (var match in node.CpeMatch ?? new List<NvdCpeMatch>())
+                {
+                    if (string.IsNullOrWhiteSpace(match.Criteria))
+                    {
+                        continue;
+                    }
+
+                    // cpe:2.3:<part>:<vendor>:<product>:<version>:...
+                    var parts = match.Criteria.Split(':');
+                    if (parts.Length < 6)
+                    {
+                        continue;
+                    }
+                    var vendor = CpeField(parts[3]);
+                    var product = CpeField(parts[4]);
+                    var version = CpeField(parts[5]);
+                    if (string.IsNullOrEmpty(product))
+                    {
+                        continue; // a product is required to correlate against services
+                    }
+
+                    var cpeUri = Truncate(match.Criteria, 500);
+                    if (!seen.Add(cpeUri))
+                    {
+                        continue; // dedupe repeated cpeMatch entries within a CVE
+                    }
+
+                    cve.Configurations.Add(new CveConfiguration
+                    {
+                        Id = Guid.NewGuid(),
+                        CpeUri = cpeUri,
+                        Vendor = Truncate(vendor, 100),
+                        Product = Truncate(product, 100),
+                        Version = Truncate(version, 50),
+                        VersionStartIncluding = Truncate(match.VersionStartIncluding ?? string.Empty, 50),
+                        VersionStartExcluding = Truncate(match.VersionStartExcluding ?? string.Empty, 50),
+                        VersionEndIncluding = Truncate(match.VersionEndIncluding ?? string.Empty, 50),
+                        VersionEndExcluding = Truncate(match.VersionEndExcluding ?? string.Empty, 50),
+                        IsVulnerable = match.Vulnerable,
+                        RunningOn = string.Empty,
+                        CreatedDate = DateTime.UtcNow,
+                        ModifiedDate = DateTime.UtcNow,
+                        UserId = userId
+                    });
+                }
+            }
+        }
+    }
+
+    /// <summary>A CPE field value, treating the "*" (ANY) and "-" (NA) wildcards as empty.</summary>
+    private static string CpeField(string value)
+    {
+        if (string.IsNullOrEmpty(value) || value == "*" || value == "-")
+        {
+            return string.Empty;
+        }
+        return value.Replace("\\:", ":").Replace("\\", string.Empty);
+    }
+
+    private static string Truncate(string value, int max)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+        return value.Length > max ? value.Substring(0, max) : value;
     }
 
     public async Task<bool> TestConnectionAsync(CancellationToken cancellationToken = default)

@@ -544,7 +544,25 @@ public class CveManager : GenericManager<Cve>, ICveManager
             existingCve.IsKnownExploited = cve.IsKnownExploited;
             existingCve.KevDueDate = cve.KevDueDate.HasValue ? DateTime.SpecifyKind(cve.KevDueDate.Value, DateTimeKind.Utc) : null;
             existingCve.ModifiedDate = DateTime.UtcNow;
-            
+
+            // Refresh affected-product CPE configurations (only when the source supplied them).
+            if (cve.Configurations != null && cve.Configurations.Count > 0)
+            {
+                var oldConfigs = Context.Set<CORE.Entities.CveConfiguration>()
+                    .Where(c => c.CveId == existingCve.Id).ToList();
+                if (oldConfigs.Count > 0)
+                {
+                    Context.Set<CORE.Entities.CveConfiguration>().RemoveRange(oldConfigs);
+                }
+                foreach (var cfg in cve.Configurations)
+                {
+                    cfg.Id = Guid.NewGuid();
+                    cfg.CveId = existingCve.Id;
+                    cfg.Cve = null;
+                    Context.Set<CORE.Entities.CveConfiguration>().Add(cfg);
+                }
+            }
+
             await Context.SaveChangesNoAuditAsync();
             return existingCve;
         }

@@ -439,6 +439,22 @@ public class CveSyncService : ICveSyncService
                             existingCve.ModifiedDate = DateTime.UtcNow;
 
                             cveManager.Update(existingCve);
+
+                            // Refresh affected-product CPE configurations for the updated CVE.
+                            var oldConfigs = cveManager.Context.Set<Cervantes.CORE.Entities.CveConfiguration>()
+                                .Where(c => c.CveId == existingCve.Id).ToList();
+                            if (oldConfigs.Count > 0)
+                            {
+                                cveManager.Context.Set<Cervantes.CORE.Entities.CveConfiguration>().RemoveRange(oldConfigs);
+                            }
+                            foreach (var cfg in updatedCve.Configurations)
+                            {
+                                cfg.Id = Guid.NewGuid();
+                                cfg.CveId = existingCve.Id;
+                                cfg.Cve = null;
+                                cveManager.Context.Set<Cervantes.CORE.Entities.CveConfiguration>().Add(cfg);
+                            }
+
                             await cveManager.Context.SaveChangesNoAuditAsync();
                             updatedCount++;
                         }
