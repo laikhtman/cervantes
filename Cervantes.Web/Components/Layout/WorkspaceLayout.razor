@@ -17,6 +17,7 @@
 @using UriComponents = System.UriComponents
 @inject IAntiforgery Antiforgery
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ISnackbar Snackbar
 @using Cervantes.Contracts
 @inject IOrganizationManager OrganizationManager
 
@@ -49,9 +50,7 @@
                                 </MudItem>
                             </TitleContent>
                             <DialogContent>
-                                @if (searchViewModel.Tasks != null || searchViewModel.Clients != null || searchViewModel.Projects != null || searchViewModel.Documents != null
-                                     || searchViewModel.Reports != null || searchViewModel.Targets != null || searchViewModel.TargetServices != null || searchViewModel.Vaults != null
-                                     || searchViewModel.VulnCategories != null || searchViewModel.Vulns != null)
+                                @if (searchViewModel.HasResults)
                                 {
                                     <MudList T="string" Clickable="true">
                                         <MudListSubheader>
@@ -379,10 +378,18 @@ public string project { get; set; }
             }
             else
             {
-                searchViewModel =  searchController.Search(searchString);
+                try
+                {
+                    searchViewModel = searchController.Search(searchString) ?? new SearchViewModel();
+                }
+                catch
+                {
+                    searchViewModel = new SearchViewModel();
+                    Snackbar.Add(localizer["searchError"], Severity.Error);
+                }
                 StateHasChanged();
             }
-                    
+
         }
     }
 }

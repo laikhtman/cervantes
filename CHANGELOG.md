@@ -42,6 +42,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Hardened the global search dialog (app bar) in `MainLayout`/`WorkspaceLayout`: the
+  "no results" empty state now actually shows after a search with no hits (previously any
+  completed search rendered an empty results list forever, because the visibility check
+  only tested lists for `null`); `SearchViewModel` collections are initialized so the dialog
+  can never crash on a null list; `SearchController.Search` returns an empty model instead
+  of `null`; and a search failure now shows a localized error snackbar instead of crashing
+  the whole Blazor circuit.
 - Fixed `NullReferenceException` crashes when typing in the search/quick-filter box of the
   **Logs**, **Clients**, **Projects**, and **Users** data grids: the filter lambdas called
   `.Contains` on optional fields that are frequently null (log `Exception`/`StackTrace`/`Url`,
