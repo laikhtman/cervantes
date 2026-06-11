@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed a `NullReferenceException` in `KnowledgeBaseController.DeleteCategory` when deleting
+  a non-existent category id. The code null-checked `category.Name` instead of `category`,
+  so a missing id threw instead of returning a clean error. ([#7](https://github.com/laikhtman/cervantes/issues/7))
 - Fixed a `NullReferenceException` (HTTP 500) in `JiraController.GetCommentsByVuln` when a
   vuln has no linked Jira issue. `FirstOrDefault` could return null and `jira.Id` was then
   dereferenced; the endpoint now returns an empty list for vulns without a Jira issue. ([#6](https://github.com/laikhtman/cervantes/issues/6))
