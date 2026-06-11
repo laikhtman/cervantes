@@ -3340,4 +3340,6 @@ Option 3</value>
     <data name="confirmDeleteAccountMessage" xml:space="preserve"><value>Are you sure you want to delete your account and all your personal data? This action cannot be undone.</value></data>
     <data name="confirmDeleteAvatarMessage" xml:space="preserve"><value>Are you sure you want to delete your avatar?</value></data>
     <data name="searchError" xml:space="preserve"><value>An error occurred while searching!</value></data>
+    <data name="stackTrace" xml:space="preserve"><value>Stack Trace</value></data>
+    <data name="logger" xml:space="preserve"><value>Logger</value></data>
 </root>

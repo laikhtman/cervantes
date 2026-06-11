@@ -49,6 +49,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Two-factor authentication snackbars in the profile page showed raw resource key names
+  (e.g. literally "twoFactorSetError") instead of the translated messages — the existing
+  keys are now resolved through the localizer. The Stack Trace and Logger column headers
+  in the admin Logs grid are now localized as well (new `stackTrace`/`logger` keys, en/es).
 - Client contact e-mails in the Clients grid now link with `mailto:` — previously the raw
   address was used as the href, producing a broken relative link.
 - Hardened the global search dialog (app bar) in `MainLayout`/`WorkspaceLayout`: the

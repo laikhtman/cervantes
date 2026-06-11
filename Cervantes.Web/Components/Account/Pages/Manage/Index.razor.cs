@@ -259,14 +259,14 @@ public partial class Index: ComponentBase
         
                 if (is2faTokenValid == false)
                 {
-                    Snackbar.Add("twoFactorSetError", Severity.Error);
+                    Snackbar.Add(localizer["twoFactorSetError"], Severity.Error);
                     return;
                 }
 
                 await UserManager.SetTwoFactorEnabledAsync(user, true);
                 //Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", user.Id);
 
-                Snackbar.Add("twoFactorSetted", Severity.Success);
+                Snackbar.Add(localizer["twoFactorSetted"], Severity.Success);
                 user = userController.GetUser(user.Id);
                 if (await UserManager.CountRecoveryCodesAsync(user) == 0)
                 {
@@ -344,13 +344,13 @@ public partial class Index: ComponentBase
         var disable2faResult = await UserManager.SetTwoFactorEnabledAsync(user, false);
         if (!disable2faResult.Succeeded)
         {
-            Snackbar.Add("disabled2faError", Severity.Error);
+            Snackbar.Add(localizer["disabled2faError"], Severity.Error);
             throw new InvalidOperationException("Unexpected error occurred disabling 2FA.");
         }
 
         var userId = await UserManager.GetUserIdAsync(user);
         Logger.LogInformation("User with ID '{UserId}' has disabled 2fa.", userId);
-        Snackbar.Add("disabled2fa", Severity.Success);
+        Snackbar.Add(localizer["disabled2fa"], Severity.Success);
         
         /*RedirectManager.RedirectToWithStatus(
             "Account/Manage/TwoFactorAuthentication",
@@ -369,7 +369,7 @@ public partial class Index: ComponentBase
         Logger.LogInformation("User with ID '{UserId}' has reset their authentication app key.", userId);
 
         await SignInManager.RefreshSignInAsync(user);
-        Snackbar.Add("resetedAuthenticator", Severity.Success);
+        Snackbar.Add(localizer["resetedAuthenticator"], Severity.Success);
 
         /*RedirectManager.RedirectToWithStatus(
             "Account/Manage/EnableAuthenticator",
