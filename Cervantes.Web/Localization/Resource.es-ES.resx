@@ -3364,4 +3364,6 @@ Opción 3</value>
     <data name="searchError" xml:space="preserve"><value>¡Se ha producido un error al buscar!</value></data>
     <data name="stackTrace" xml:space="preserve"><value>Traza de pila</value></data>
     <data name="logger" xml:space="preserve"><value>Origen</value></data>
+    <data name="allProjects" xml:space="preserve"><value>Todos los proyectos</value></data>
+    <data name="selectProjectFirst" xml:space="preserve"><value>Seleccione primero un proyecto en el filtro</value></data>
 </root>

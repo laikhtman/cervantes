@@ -32,6 +32,10 @@
         {
             <MudNavLink Href="/projects" Icon="@Icons.Material.Filled.Folder" Match="NavLinkMatch.Prefix">@localizer["projects"]</MudNavLink>
         }
+        @if (user.HasPermission(Permissions.TargetsRead))
+        {
+            <MudNavLink Href="/targets" Icon="@Icons.Material.Filled.Adjust" Match="NavLinkMatch.Prefix">@localizer["targets"]</MudNavLink>
+        }
         @if(user.HasPermission(Permissions.ClientsRead))
         {
             <MudNavLink Href="/clients" Icon="@Icons.Material.Filled.BusinessCenter" Match="NavLinkMatch.Prefix">@localizer["clients"]</MudNavLink>

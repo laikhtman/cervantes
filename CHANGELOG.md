@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- New global **Targets** page at `/targets` (linked in the navigation menu, gated on the
+  `TargetsRead` permission) to manage all targets in the system across projects: sortable/
+  filterable grid with name, type, project (linking to the project's workspace targets), and
+  created-by columns; full-text quick filter; a project filter dropdown; and create, import,
+  edit (row click), and bulk-delete actions reusing the existing target dialogs (create/import
+  activate once a project is selected, since targets always belong to a project).
+  `TargetController.GetTargets()` now includes the `User` and `Project` navigation properties.
 - CVE subscriptions now support a **maximum EPSS score** filter, completing the EPSS range
   (previously only a minimum existed, so CVEs above the intended EPSS range still matched
   and generated notifications). Adds a `MaxEpssScore` column (EF migration
