@@ -3342,4 +3342,6 @@ Option 3</value>
     <data name="searchError" xml:space="preserve"><value>An error occurred while searching!</value></data>
     <data name="stackTrace" xml:space="preserve"><value>Stack Trace</value></data>
     <data name="logger" xml:space="preserve"><value>Logger</value></data>
+    <data name="allProjects" xml:space="preserve"><value>All projects</value></data>
+    <data name="selectProjectFirst" xml:space="preserve"><value>Select a project in the filter first</value></data>
 </root>

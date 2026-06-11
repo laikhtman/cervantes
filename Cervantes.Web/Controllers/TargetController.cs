@@ -73,7 +73,8 @@ public class TargetController : ControllerBase
     {
         try
         {
-            IEnumerable<CORE.Entities.Target> model = targetManager.GetAll().ToArray();
+            IEnumerable<CORE.Entities.Target> model = targetManager.GetAll()
+                .Include(x => x.User).Include(x => x.Project).ToArray();
             return model;
         }
         catch (Exception e)
