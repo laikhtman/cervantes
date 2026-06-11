@@ -23,6 +23,11 @@ public partial class Targets : ComponentBase
 
     private List<BreadcrumbItem> _items;
     private string searchString = "";
+    private bool subdomainEnabled;
+    private bool subdomainRunning;
+
+    private IEnumerable<CORE.Entities.Target> EligibleSelectedTargets =>
+        seleTargets.Where(t => t.Type == CORE.Entities.TargetType.URL || t.Type == CORE.Entities.TargetType.Hostname);
 
     DialogOptionsEx maxWidthEx = new DialogOptionsEx()
     {
@@ -71,6 +76,7 @@ public partial class Targets : ComponentBase
             new BreadcrumbItem(localizer["targets"], href: null, disabled: true, icon: Icons.Material.Filled.Adjust)
         };
         projects = _projectController.Get().OrderBy(x => x.Name).ToList();
+        subdomainEnabled = _targetController.IsSubdomainDiscoveryEnabled();
         await Update();
         await base.OnInitializedAsync();
     }
@@ -177,5 +183,48 @@ public partial class Targets : ComponentBase
     void SelectedItemsChanged(HashSet<CORE.Entities.Target> items)
     {
         seleTargets = items.ToList();
+    }
+
+    private async Task DiscoverSubdomains()
+    {
+        var eligible = EligibleSelectedTargets.ToList();
+        if (eligible.Count == 0)
+        {
+            Snackbar.Add(localizer["subdomainDiscoverySelectEligible"], Severity.Warning);
+            return;
+        }
+
+        subdomainRunning = true;
+        StateHasChanged();
+
+        var found = 0;
+        var created = 0;
+        var skipped = 0;
+        try
+        {
+            foreach (var target in eligible)
+            {
+                var result = await _targetController.RunSubdomainDiscovery(target.Id);
+                found += result.Found;
+                created += result.Created;
+                skipped += result.Skipped;
+            }
+
+            Snackbar.Add(
+                $"{localizer["subdomainDiscoveryComplete"]} — {found} found, {created} created, {skipped} skipped",
+                Severity.Success);
+
+            seleTargets = new List<CORE.Entities.Target>();
+            await Update();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add(localizer["subdomainDiscoveryError"], Severity.Error);
+        }
+        finally
+        {
+            subdomainRunning = false;
+            StateHasChanged();
+        }
     }
 }

@@ -5,7 +5,9 @@ using Cervantes.IFR.File;
 using Cervantes.IFR.Jira;
 using Cervantes.IFR.Ldap;
 using Cervantes.IFR.CveServices;
+using Cervantes.IFR.Subdomain;
 using Cervantes.Contracts;
+using Cervantes.Web.Services;
 
 namespace Cervantes.Web.Extensions;
 
@@ -39,7 +41,26 @@ public static class ExternalServiceExtensions
         
         // CVE Services
         services.AddCveServices(configuration);
-        
+
+        // Subdomain enumeration (MerkleMap, SecurityTrails)
+        services.AddSubdomainServices(configuration);
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers subdomain enumeration services (MerkleMap, SecurityTrails)
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="configuration">The configuration</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddSubdomainServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        var subdomainConfig = configuration.GetSection("SubdomainConfiguration").Get<SubdomainConfiguration>()
+                              ?? new SubdomainConfiguration();
+        services.AddSingleton<ISubdomainConfiguration>(subdomainConfig);
+        services.AddHttpClient<ISubdomainService, SubdomainService>();
+
         return services;
     }
 
@@ -135,7 +156,14 @@ public static class ExternalServiceExtensions
         
         // Register CVE services
         services.AddScoped<ICveSyncService, CveSyncService>();
-        
+        services.AddScoped<ICveMatchingService, CveMatchingService>();
+
+        // CVE exposure (target-service correlation + alerting)
+        var exposureConfig = configuration.GetSection("CveExposureConfiguration").Get<CveExposureConfiguration>()
+                             ?? new CveExposureConfiguration();
+        services.AddSingleton<ICveExposureConfiguration>(exposureConfig);
+        services.AddHttpClient<ICveExposureAlertService, CveExposureAlertService>();
+
         // Register VulnEnrichment services
         services.AddHttpClient<IEpssApiService, EpssApiService>();
         services.AddHttpClient<ICisaKevApiService, CisaKevApiService>(); 

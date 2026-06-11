@@ -369,6 +369,46 @@ public class EmailService : IEmailService
         }
     }
 
+    public async Task<bool> SendCveExposureAlertAsync(string userId, string subject, string htmlBody)
+    {
+        try
+        {
+            if (_emailConfiguration.Enabled == false)
+            {
+                return false;
+            }
+
+            var user = userManager.GetByUserId(userId);
+            if (user == null || string.IsNullOrEmpty(user.Email))
+            {
+                return false;
+            }
+
+            var mimeMessage = new MimeMessage();
+            mimeMessage.To.Add(new MailboxAddress(user.FullName, user.Email));
+            mimeMessage.From.Add(new MailboxAddress(_emailConfiguration.Name, _emailConfiguration.From));
+            mimeMessage.Subject = string.IsNullOrEmpty(subject) ? "CVE Exposure Alert" : subject;
+            mimeMessage.Body = new TextPart(TextFormat.Html) { Text = htmlBody };
+
+            using (var emailClient = new SmtpClient())
+            {
+                emailClient.Connect(_emailConfiguration.SmtpServer, _emailConfiguration.SmtpPort,
+                    SecureSocketOptions.Auto);
+                emailClient.AuthenticationMechanisms.Remove("XOAUTH2");
+                emailClient.Authenticate(_emailConfiguration.SmtpUsername, _emailConfiguration.SmtpPassword);
+                await emailClient.SendAsync(mimeMessage);
+                emailClient.Disconnect(true);
+            }
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return false;
+        }
+    }
+
     private string GenerateCveNotificationHtml(CveNotification notification)
     {
         var sb = new StringBuilder();

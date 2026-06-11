@@ -52,6 +52,11 @@
                             </MudButtonGroup>
                         }
                     }
+                    @if (subdomainEnabled && userAth.HasPermission(Permissions.TargetsAdd) && EligibleSelectedTargets.Any())
+                    {
+                        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.TravelExplore" Color="Color.Primary"
+                                   Disabled="@subdomainRunning" OnClick="@DiscoverSubdomains">@localizer["discoverSubdomains"]</MudButton>
+                    }
                     <MudSelect T="Guid?" Value="selectedProject" ValueChanged="OnProjectFilterChanged" Clearable="true"
                                Placeholder="@localizer["allProjects"]" Class="mt-0" Style="min-width: 220px;" Dense="true">
                         @foreach (var p in projects)

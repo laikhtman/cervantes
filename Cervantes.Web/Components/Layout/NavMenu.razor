@@ -56,6 +56,10 @@
         {
            <MudNavLink Icon="@cveSVG" Href="/cve">CVE</MudNavLink>
         }
+        @if(user.HasPermission(Permissions.CveRead) && user.HasPermission(Permissions.TargetsRead))
+        {
+           <MudNavLink Icon="@Icons.Material.Filled.Security" Href="/cve-exposure" Match="NavLinkMatch.Prefix">@localizer["cveExposure"]</MudNavLink>
+        }
         @if (jiraEnabled)
         {
             <MudNavLink Href="/jira" Icon="@jiraSVG" Match="NavLinkMatch.Prefix">@localizer["jira"]</MudNavLink>

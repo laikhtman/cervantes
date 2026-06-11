@@ -9,6 +9,8 @@ using Cervantes.CORE.ViewModel;
 using Cervantes.CORE.ViewModels;
 using Cervantes.IFR.File;
 using Cervantes.IFR.Parsers.Nmap;
+using Cervantes.IFR.Subdomain;
+using Cervantes.IFR.CveServices;
 using Cervantes.Web.Helpers;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -34,6 +36,10 @@ public class TargetController : ControllerBase
     private INmapParser nmapParser = null;
     private ITargetCustomFieldManager targetCustomFieldManager = null;
     private ITargetCustomFieldValueManager targetCustomFieldValueManager = null;
+    private ISubdomainService subdomainService = null;
+    private ICveMatchingService cveMatchingService = null;
+    private ITargetServiceCveManager targetServiceCveManager = null;
+    private ICveExposureConfiguration cveExposureConfiguration = null;
     private readonly IWebHostEnvironment env;
     private IHttpContextAccessor HttpContextAccessor;
     private string aspNetUserId;
@@ -50,7 +56,9 @@ public class TargetController : ControllerBase
         IProjectManager projectManager, IProjectUserManager projectUserManager, ILogger<TargetController> logger,
         IProjectAttachmentManager projectAttachmentManager, INmapParser nmapParser, IWebHostEnvironment env,
         IHttpContextAccessor HttpContextAccessor, IFileCheck fileCheck, Sanitizer sanitizer,
-        ITargetCustomFieldManager targetCustomFieldManager, ITargetCustomFieldValueManager targetCustomFieldValueManager)
+        ITargetCustomFieldManager targetCustomFieldManager, ITargetCustomFieldValueManager targetCustomFieldValueManager,
+        ISubdomainService subdomainService, ICveMatchingService cveMatchingService,
+        ITargetServiceCveManager targetServiceCveManager, ICveExposureConfiguration cveExposureConfiguration)
     {
         this.targetManager = targetManager;
         this.targetServicesManager = targetServicesManager;
@@ -65,6 +73,10 @@ public class TargetController : ControllerBase
         this.sanitizer = sanitizer;
         this.targetCustomFieldManager = targetCustomFieldManager;
         this.targetCustomFieldValueManager = targetCustomFieldValueManager;
+        this.subdomainService = subdomainService;
+        this.cveMatchingService = cveMatchingService;
+        this.targetServiceCveManager = targetServiceCveManager;
+        this.cveExposureConfiguration = cveExposureConfiguration;
     }
 
     [HttpGet]
@@ -796,9 +808,293 @@ public class TargetController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating custom field values for target {TargetId}. User: {UserId}", 
+            _logger.LogError(ex, "Error updating custom field values for target {TargetId}. User: {UserId}",
                 targetId, aspNetUserId);
             return BadRequest("Error updating custom field values");
         }
+    }
+
+    /// <summary>
+    /// Whether subdomain discovery is enabled (feature flag + at least one provider key configured).
+    /// </summary>
+    /// <returns>True if the feature can be used.</returns>
+    [HttpGet]
+    [Route("subdomains/enabled")]
+    [HasPermission(Permissions.TargetsRead)]
+    public bool SubdomainDiscoveryEnabled()
+    {
+        return subdomainService.Enabled;
+    }
+
+    /// <summary>
+    /// Enumerate subdomains for a target's domain and import the new ones as Hostname targets.
+    /// </summary>
+    /// <param name="targetId">Source target ID (must be a URL or Hostname target).</param>
+    /// <returns>The discovery result counts.</returns>
+    [HttpPost]
+    [Route("{targetId}/subdomains/discover")]
+    [HasPermission(Permissions.TargetsAdd)]
+    public async Task<IActionResult> DiscoverSubdomains(Guid targetId)
+    {
+        try
+        {
+            var target = targetManager.GetById(targetId);
+            if (target == null)
+            {
+                return NotFound($"Target with ID {targetId} not found");
+            }
+
+            var user = projectUserManager.VerifyUser(target.ProjectId.Value, aspNetUserId);
+            if (user == null)
+            {
+                return BadRequest("Access denied: User does not have permission to access this project");
+            }
+
+            var result = await subdomainService.DiscoverAndImportAsync(targetId, aspNetUserId);
+            _logger.LogInformation(
+                "Subdomain discovery for target {TargetId} finished with status {Status}. User: {UserId}",
+                targetId, result.Status, aspNetUserId);
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An error ocurred discovering subdomains for target {TargetId}. User: {UserId}",
+                targetId, aspNetUserId);
+            return StatusCode(500, "An error occurred while discovering subdomains. Please try again later.");
+        }
+    }
+
+    /// <summary>
+    /// Component helper: subdomain discovery feature flag, callable in-process from Blazor.
+    /// </summary>
+    [NonAction]
+    public bool IsSubdomainDiscoveryEnabled() => subdomainService.Enabled;
+
+    /// <summary>
+    /// Component helper: run subdomain discovery for a target, verifying project access first.
+    /// Callable in-process from Blazor (MVC filters do not run on direct calls).
+    /// </summary>
+    /// <param name="targetId">Source target ID.</param>
+    /// <returns>The discovery result, or a Disabled/TargetNotFound/NotEligible status.</returns>
+    [NonAction]
+    public async Task<SubdomainImportResult> RunSubdomainDiscovery(Guid targetId)
+    {
+        var target = targetManager.GetById(targetId);
+        if (target == null)
+        {
+            return new SubdomainImportResult { Status = SubdomainImportStatus.TargetNotFound };
+        }
+
+        var user = projectUserManager.VerifyUser(target.ProjectId.Value, aspNetUserId);
+        if (user == null)
+        {
+            return new SubdomainImportResult { Status = SubdomainImportStatus.NotEligible };
+        }
+
+        return await subdomainService.DiscoverAndImportAsync(targetId, aspNetUserId);
+    }
+
+    // ----- CVE exposure --------------------------------------------------
+
+    /// <summary>Whether the CVE exposure feature is enabled.</summary>
+    [HttpGet]
+    [Route("cve-exposure/enabled")]
+    [HasPermission(Permissions.TargetsRead)]
+    public bool CveExposureEnabled() => cveExposureConfiguration.Enabled;
+
+    /// <summary>Correlate a single target's services against the CVE database.</summary>
+    [HttpPost]
+    [Route("{targetId}/cve-exposure/scan")]
+    [HasPermission(Permissions.TargetsEdit)]
+    public async Task<IActionResult> ScanTargetCveExposure(Guid targetId)
+    {
+        try
+        {
+            var target = targetManager.GetById(targetId);
+            if (target == null)
+            {
+                return NotFound($"Target with ID {targetId} not found");
+            }
+            var user = projectUserManager.VerifyUser(target.ProjectId.Value, aspNetUserId);
+            if (user == null)
+            {
+                return BadRequest("Access denied: User does not have permission to access this project");
+            }
+            var result = await cveMatchingService.MatchTargetAsync(targetId, aspNetUserId);
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An error ocurred scanning CVE exposure for target {TargetId}. User: {UserId}",
+                targetId, aspNetUserId);
+            return StatusCode(500, "An error occurred while scanning CVE exposure. Please try again later.");
+        }
+    }
+
+    /// <summary>List CVE exposure matches for a single target.</summary>
+    [HttpGet]
+    [Route("{targetId}/cve-exposure")]
+    [HasPermission(Permissions.TargetsRead)]
+    public IEnumerable<CveExposureViewModel> GetTargetCveExposure(Guid targetId)
+    {
+        return ExposureQuery().Where(x => x.TargetId == targetId && !x.IsDismissed)
+            .ToList().Select(Map).ToList();
+    }
+
+    /// <summary>Correlate all targets' services (optionally one project) against the CVE database.</summary>
+    [HttpPost]
+    [Route("cve-exposure/scan")]
+    [HasPermission(Permissions.TargetsEdit)]
+    public async Task<IActionResult> ScanAllCveExposure([FromQuery] Guid? projectId = null)
+    {
+        try
+        {
+            var result = await cveMatchingService.MatchAllAsync(projectId, aspNetUserId);
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An error ocurred scanning CVE exposure (all). User: {UserId}", aspNetUserId);
+            return StatusCode(500, "An error occurred while scanning CVE exposure. Please try again later.");
+        }
+    }
+
+    /// <summary>List all CVE exposure matches.</summary>
+    [HttpGet]
+    [Route("cve-exposure")]
+    [HasPermission(Permissions.TargetsRead)]
+    public IEnumerable<CveExposureViewModel> GetAllCveExposure(bool includeDismissed = false)
+    {
+        var query = ExposureQuery();
+        if (!includeDismissed)
+        {
+            query = query.Where(x => !x.IsDismissed);
+        }
+        return query.ToList().Select(Map).ToList();
+    }
+
+    /// <summary>Dismiss a CVE exposure match as a false positive.</summary>
+    [HttpPost]
+    [Route("cve-exposure/{matchId}/dismiss")]
+    [HasPermission(Permissions.TargetsEdit)]
+    public async Task<IActionResult> DismissCveExposure(Guid matchId)
+    {
+        try
+        {
+            var match = targetServiceCveManager.GetById(matchId);
+            if (match == null)
+            {
+                return NotFound($"Match with ID {matchId} not found");
+            }
+            match.IsDismissed = true;
+            match.ModifiedDate = DateTime.UtcNow;
+            targetServiceCveManager.Update(match);
+            await targetServiceCveManager.Context.SaveChangesAsync();
+            return NoContent();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An error ocurred dismissing CVE exposure match {MatchId}. User: {UserId}",
+                matchId, aspNetUserId);
+            return StatusCode(500, "An error occurred while dismissing the match. Please try again later.");
+        }
+    }
+
+    // Component helpers (in-process Blazor calls; MVC filters do not run on direct calls).
+
+    [NonAction]
+    public bool IsCveExposureEnabled() => cveExposureConfiguration.Enabled;
+
+    [NonAction]
+    public async Task<CveExposureScanResult> RunTargetCveExposureScan(Guid targetId)
+    {
+        var target = targetManager.GetById(targetId);
+        if (target == null || target.ProjectId == null)
+        {
+            return new CveExposureScanResult();
+        }
+        var user = projectUserManager.VerifyUser(target.ProjectId.Value, aspNetUserId);
+        if (user == null)
+        {
+            return new CveExposureScanResult();
+        }
+        return await cveMatchingService.MatchTargetAsync(targetId, aspNetUserId);
+    }
+
+    [NonAction]
+    public async Task<CveExposureScanResult> RunAllCveExposureScan(Guid? projectId = null)
+    {
+        return await cveMatchingService.MatchAllAsync(projectId, aspNetUserId);
+    }
+
+    [NonAction]
+    public List<CveExposureViewModel> GetTargetCveExposureList(Guid targetId)
+    {
+        return ExposureQuery().Where(x => x.TargetId == targetId && !x.IsDismissed)
+            .ToList().Select(Map).ToList();
+    }
+
+    [NonAction]
+    public List<CveExposureViewModel> GetAllCveExposureList(bool includeDismissed = false)
+    {
+        var query = ExposureQuery();
+        if (!includeDismissed)
+        {
+            query = query.Where(x => !x.IsDismissed);
+        }
+        return query.ToList().Select(Map).ToList();
+    }
+
+    [NonAction]
+    public async Task<bool> DismissCveExposureMatch(Guid matchId)
+    {
+        var match = targetServiceCveManager.GetById(matchId);
+        if (match == null)
+        {
+            return false;
+        }
+        match.IsDismissed = true;
+        match.ModifiedDate = DateTime.UtcNow;
+        targetServiceCveManager.Update(match);
+        await targetServiceCveManager.Context.SaveChangesAsync();
+        return true;
+    }
+
+    private IQueryable<CORE.Entities.TargetServiceCve> ExposureQuery()
+    {
+        return targetServiceCveManager.GetAll()
+            .Include(x => x.Cve)
+            .Include(x => x.Target).ThenInclude(t => t.Project)
+            .Include(x => x.TargetService);
+    }
+
+    private static CveExposureViewModel Map(CORE.Entities.TargetServiceCve m)
+    {
+        return new CveExposureViewModel
+        {
+            Id = m.Id,
+            TargetId = m.TargetId,
+            TargetName = m.Target?.Name,
+            ProjectId = m.Target?.ProjectId,
+            ProjectName = m.Target?.Project?.Name,
+            TargetServiceId = m.TargetServiceId,
+            ServiceName = m.TargetService?.Name,
+            ServicePort = m.TargetService?.Port ?? 0,
+            ServiceVersion = m.TargetService?.Version,
+            CveId = m.CveId,
+            CveIdentifier = m.Cve?.CveId,
+            CveTitle = m.Cve?.Title,
+            Severity = m.Cve?.CvssV3Severity,
+            CvssScore = m.Cve?.CvssV3BaseScore,
+            EpssScore = m.Cve?.EpssScore,
+            IsKnownExploited = m.Cve?.IsKnownExploited ?? false,
+            MatchType = m.MatchType,
+            Confidence = m.Confidence,
+            MatchedProduct = m.MatchedProduct,
+            MatchedVersion = m.MatchedVersion,
+            IsDismissed = m.IsDismissed,
+            IsValidated = m.IsValidated,
+            CreatedDate = m.CreatedDate
+        };
     }
 }
