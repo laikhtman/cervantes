@@ -73,11 +73,8 @@ namespace Cervantes.DAL;
                         case EntityState.Added:
                             auditEntry.AuditType = AuditType.Add;
                             auditEntry.NewValues[propertyName] = property.CurrentValue;
-                            if (auditEntry.UserId != null)
-                            {
-                                auditEntry.UserId = entry.Property("CreatedBy").CurrentValue != null ? entry.Property("CreatedBy").CurrentValue.ToString() : "Null";
-
-                            }
+                            auditEntry.UserId = _httpContextAccessor.HttpContext?.User
+                                ?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                             break;
                         case EntityState.Deleted:
                             auditEntry.AuditType = AuditType.Delete;
