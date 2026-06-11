@@ -3358,4 +3358,7 @@ Opción 3</value>
     <data name="draftSavedAgo" xml:space="preserve"><value>Borrador guardado hace {0}s</value></data>
     <data name="draftError" xml:space="preserve"><value>Error guardando borrador</value></data>
     <data name="draftReady" xml:space="preserve"><value>Borrador listo</value></data>
+    <data name="confirmDeleteAllLogsMessage" xml:space="preserve"><value>¿Está seguro de que desea eliminar TODOS los registros del sistema? Esta acción no se puede deshacer.</value></data>
+    <data name="confirmDeleteAccountMessage" xml:space="preserve"><value>¿Está seguro de que desea eliminar su cuenta y todos sus datos personales? Esta acción no se puede deshacer.</value></data>
+    <data name="confirmDeleteAvatarMessage" xml:space="preserve"><value>¿Está seguro de que desea eliminar su avatar?</value></data>
 </root>

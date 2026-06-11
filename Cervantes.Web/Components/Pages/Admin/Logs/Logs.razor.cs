@@ -75,6 +75,15 @@ public partial class Logs: ComponentBase
     
     private async Task DeleteAll()
     {
+        bool? confirm = await Dialog.ShowMessageBox(
+            localizer["confirmDelete"],
+            localizer["confirmDeleteAllLogsMessage"],
+            yesText: localizer["delete"], cancelText: localizer["cancel"]);
+        if (confirm != true)
+        {
+            return;
+        }
+
         var response = await _logController.DeleteAll();
         if (response.ToString() == "Microsoft.AspNetCore.Mvc.NoContentResult")
         {

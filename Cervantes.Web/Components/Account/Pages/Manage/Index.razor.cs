@@ -152,6 +152,15 @@ public partial class Index: ComponentBase
     }
     private async Task DeleteAvatar(string id)
     {
+        bool? confirm = await Dialog.ShowMessageBox(
+            localizer["confirmDelete"],
+            localizer["confirmDeleteAvatarMessage"],
+            yesText: localizer["delete"], cancelText: localizer["cancel"]);
+        if (confirm != true)
+        {
+            return;
+        }
+
         var response = await _UserController.DeleteAvatar(id);
         if (response.ToString() == "Microsoft.AspNetCore.Mvc.OkResult")
         {
@@ -211,6 +220,15 @@ public partial class Index: ComponentBase
     #region PersonalData
     private async Task DeletePersonalData()
     {
+        bool? confirm = await Dialog.ShowMessageBox(
+            localizer["confirmDelete"],
+            localizer["confirmDeleteAccountMessage"],
+            yesText: localizer["delete"], cancelText: localizer["cancel"]);
+        if (confirm != true)
+        {
+            return;
+        }
+
         var result = await userController.Delete(user.Id);
         await SignInManager.SignOutAsync();
 

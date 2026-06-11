@@ -32,6 +32,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   altering query semantics (user enumeration / auth-logic bypass). This also fixes group
   lookups for legitimate DNs containing parentheses. ([#4](https://github.com/laikhtman/cervantes/issues/4))
 
+### Changed
+
+- Destructive actions now ask for confirmation before executing: **Delete All Logs**
+  (Admin → Logs), **Delete Personal Data** (account self-deletion), and **Delete Avatar**
+  in the profile page previously fired immediately on click. Each now shows a localized
+  confirmation dialog (new `confirmDelete*Message` resource keys in en/es; other languages
+  fall back to English).
+
 ### Fixed
 
 - The uploaded **Organization logo** is now actually displayed by the application. The
