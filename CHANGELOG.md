@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Hardened the Nessus parser (`NessusParser`) against import-aborting crashes and wrong host
+  data: it no longer throws when a `ReportHost` has no `HostProperties`; CVSS scores are parsed
+  with `float.TryParse` (a non-numeric `cvss3_base_score` no longer throws `FormatException`);
+  and OS / host-IP are now read correctly from `<tag name="…">value</tag>` elements instead of
+  non-existent attributes (previously these fields were always blank). ([#10](https://github.com/laikhtman/cervantes/issues/10))
 - Fixed WSTG report generation appending footer components into the body builder
   (`sbBody`) instead of the footer builder (`sbFooter`). Footer content was duplicated
   into the body and the `{{FooterComponents}}` placeholder was left empty. ([#12](https://github.com/laikhtman/cervantes/issues/12))
