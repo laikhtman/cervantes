@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- CVE subscriptions now support a **maximum EPSS score** filter, completing the EPSS range
+  (previously only a minimum existed, so CVEs above the intended EPSS range still matched
+  and generated notifications). Adds a `MaxEpssScore` column (EF migration
+  `AddMaxEpssScoreToCveSubscription`), viewmodel/validation, controller mapping, a dialog
+  field, localization (en/es), and the matching filter in `CveSubscriptionManager`.
+  Requires applying the new migration to the database. ([#14](https://github.com/laikhtman/cervantes/issues/14))
+
 ### Fixed
 
 - Fixed WSTG report generation appending footer components into the body builder
