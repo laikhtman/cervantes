@@ -8,7 +8,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Cervantes.IFR.CveServices;
 
 /// <summary>
-/// Correlates target services against CVE CPE configurations with a tiered, scored match.
+/// Correlates target services against CVE CPE configurations with a tiered, scored match that
+/// uses both the CPE product and vendor, plus a small alias map to bridge common banner/CPE
+/// naming differences (e.g. "Apache httpd" vs vendor "apache" / product "http_server").
 /// </summary>
 public class CveMatchingService : ICveMatchingService
 {
@@ -17,11 +19,31 @@ public class CveMatchingService : ICveMatchingService
     private readonly ICveManager _cveManager;
     private readonly ILogger<CveMatchingService> _logger;
 
-    // Tokens that carry no product identity and only add noise to the match key.
-    private static readonly string[] NoiseTokens =
-        { "httpd", "server", "service", "daemon", "openbsd", "ubuntu", "debian", "the" };
-
     private static readonly Regex VersionRegex = new(@"\d+(\.\d+)+", RegexOptions.Compiled);
+
+    // Tokens too generic to identify a product on their own. A product match requires at least
+    // one shared NON-generic token, so "http_server" and "sql_server" don't match on "server".
+    private static readonly HashSet<string> GenericTokens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "server", "service", "services", "system", "software", "framework", "library", "module",
+        "the", "for", "and", "project", "edition", "community", "professional", "enterprise",
+        "standard", "app", "application", "daemon", "client", "tool", "tools"
+    };
+
+    // Service-banner token -> canonical CPE product tokens. Bridges the most common mismatches
+    // between scanner banners and NVD CPE product names.
+    private static readonly Dictionary<string, string[]> ProductAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["httpd"] = new[] { "http", "server" },
+        ["apache2"] = new[] { "http", "server" },
+        ["iis"] = new[] { "internet", "information", "services" },
+        ["postgres"] = new[] { "postgresql" },
+        ["mysqld"] = new[] { "mysql" },
+        ["nodejs"] = new[] { "node", "js" },
+        ["bind9"] = new[] { "bind" },
+        ["exim4"] = new[] { "exim" },
+        ["named"] = new[] { "bind" }
+    };
 
     public CveMatchingService(
         ITargetServicesManager targetServicesManager,
@@ -44,7 +66,7 @@ public class CveMatchingService : ICveMatchingService
             return new CveExposureScanResult();
         }
 
-        var index = await BuildProductIndexAsync(ct);
+        var index = await BuildFullIndexAsync(ct);
         var result = new CveExposureScanResult();
         await MatchOneServiceAsync(service, index, userId, result, ct);
         await _matchManager.Context.SaveChangesAsync();
@@ -57,7 +79,7 @@ public class CveMatchingService : ICveMatchingService
             .Where(x => x.TargetId == targetId)
             .ToListAsync(ct);
 
-        var index = await BuildProductIndexAsync(ct);
+        var index = await BuildFullIndexAsync(ct);
         var result = new CveExposureScanResult();
         foreach (var service in services)
         {
@@ -77,7 +99,7 @@ public class CveMatchingService : ICveMatchingService
         }
         var services = await query.ToListAsync(ct);
 
-        var index = await BuildProductIndexAsync(ct);
+        var index = await BuildFullIndexAsync(ct);
         var result = new CveExposureScanResult();
         foreach (var service in services)
         {
@@ -100,7 +122,6 @@ public class CveMatchingService : ICveMatchingService
             return Array.Empty<TargetServiceCve>();
         }
 
-        // Only the configurations belonging to the newly-synced CVEs.
         var configs = await _matchManager.Context.Set<CveConfiguration>()
             .Where(c => c.IsVulnerable && ids.Contains(c.CveId))
             .ToListAsync(ct);
@@ -116,12 +137,8 @@ public class CveMatchingService : ICveMatchingService
         foreach (var service in services)
         {
             ct.ThrowIfCancellationRequested();
-            var before = result.Created;
             var newOnes = await MatchOneServiceAsync(service, index, userId, result, ct);
-            if (result.Created > before)
-            {
-                created.AddRange(newOnes);
-            }
+            created.AddRange(newOnes);
         }
         await _matchManager.Context.SaveChangesAsync();
         return created;
@@ -130,12 +147,12 @@ public class CveMatchingService : ICveMatchingService
     // ----- Core matching --------------------------------------------------
 
     /// <summary>
-    /// Scores a single service against the product index and upserts matches.
+    /// Scores a single service against the inverted token index and upserts matches.
     /// Returns the newly-created records (for alerting).
     /// </summary>
     private async Task<List<TargetServiceCve>> MatchOneServiceAsync(
         TargetServices service,
-        Dictionary<string, List<CveConfiguration>> index,
+        Dictionary<string, List<ConfigEntry>> index,
         string userId,
         CveExposureScanResult result,
         CancellationToken ct)
@@ -143,44 +160,43 @@ public class CveMatchingService : ICveMatchingService
         result.ServicesScanned++;
         var created = new List<TargetServiceCve>();
 
-        var product = NormalizeProduct(service.Name);
-        if (string.IsNullOrEmpty(product))
+        var serviceTokens = TokenSet(service.Name);
+        if (serviceTokens.Count == 0)
         {
             return created;
         }
         var version = ParseVersion(service.Version) ?? ParseVersion(service.Name);
 
-        // Best match per CVE for this service.
-        var best = new Dictionary<Guid, (CveConfiguration config, double confidence, string matchType, bool isKeyword)>();
-        foreach (var (key, configs) in index)
+        // Gather candidate configs via the inverted index (non-generic tokens only).
+        var candidates = new HashSet<ConfigEntry>();
+        foreach (var token in serviceTokens)
         {
-            if (!ProductsMatch(product, key))
+            if (GenericTokens.Contains(token))
             {
                 continue;
             }
-            foreach (var config in configs)
+            if (index.TryGetValue(token, out var entries))
             {
-                var (confidence, matchType) = Score(config, version);
-                if (confidence <= 0)
+                foreach (var e in entries)
                 {
-                    continue;
-                }
-                if (!best.TryGetValue(config.CveId, out var existing) || confidence > existing.confidence)
-                {
-                    best[config.CveId] = (config, confidence, matchType, false);
+                    candidates.Add(e);
                 }
             }
         }
 
-        // Keyword fallback: product name present but no usable config produced a match.
-        if (best.Count == 0 && index.TryGetValue(product, out var exact) && exact.Count > 0)
+        // Best match per CVE for this service.
+        var best = new Dictionary<Guid, (ConfigEntry entry, double confidence, string matchType)>();
+        foreach (var entry in candidates)
         {
-            foreach (var config in exact)
+            var (confidence, matchType) = Score(entry, serviceTokens, version);
+            if (confidence <= 0)
             {
-                if (!best.ContainsKey(config.CveId))
-                {
-                    best[config.CveId] = (config, 0.30, "KeywordFallback", true);
-                }
+                continue;
+            }
+            var cveId = entry.Config.CveId;
+            if (!best.TryGetValue(cveId, out var existing) || confidence > existing.confidence)
+            {
+                best[cveId] = (entry, confidence, matchType);
             }
         }
 
@@ -190,6 +206,7 @@ public class CveMatchingService : ICveMatchingService
             var existing = await _matchManager.GetAll()
                 .FirstOrDefaultAsync(x => x.TargetServiceId == service.Id && x.CveId == cveId, ct);
 
+            var matchedProduct = BuildMatchedProduct(match.entry.Config);
             if (existing != null)
             {
                 if (existing.IsDismissed)
@@ -201,8 +218,8 @@ public class CveMatchingService : ICveMatchingService
                 {
                     existing.Confidence = match.confidence;
                     existing.MatchType = match.matchType;
-                    existing.CveConfigurationId = match.isKeyword ? null : match.config.Id;
-                    existing.MatchedProduct = product;
+                    existing.CveConfigurationId = match.entry.Config.Id;
+                    existing.MatchedProduct = matchedProduct;
                     existing.MatchedVersion = version?.ToString() ?? string.Empty;
                     existing.ModifiedDate = DateTime.UtcNow;
                     _matchManager.Update(existing);
@@ -220,10 +237,10 @@ public class CveMatchingService : ICveMatchingService
                 TargetServiceId = service.Id,
                 TargetId = service.TargetId,
                 CveId = cveId,
-                CveConfigurationId = match.isKeyword ? null : match.config.Id,
+                CveConfigurationId = match.entry.Config.Id,
                 MatchType = match.matchType,
                 Confidence = match.confidence,
-                MatchedProduct = product,
+                MatchedProduct = matchedProduct,
                 MatchedVersion = version?.ToString() ?? string.Empty,
                 UserId = string.IsNullOrEmpty(service.UserId) ? userId : service.UserId,
                 CreatedDate = DateTime.UtcNow,
@@ -238,58 +255,94 @@ public class CveMatchingService : ICveMatchingService
     }
 
     /// <summary>
-    /// Scores a config against a parsed service version. Returns (confidence, matchType);
-    /// confidence 0 means no match.
+    /// Scores a candidate config against a service's token set and parsed version.
+    /// Returns (confidence, matchType); confidence 0 means no match.
     /// </summary>
-    private static (double confidence, string matchType) Score(CveConfiguration config, Version version)
+    private static (double confidence, string matchType) Score(ConfigEntry entry, HashSet<string> serviceTokens, Version version)
     {
-        // Exact pinned version.
-        var configVersion = ParseVersion(config.Version);
-        if (version != null && configVersion != null && version == configVersion)
+        var verdict = VersionVerdict(entry.Config, version);
+        if (verdict == VerdictKind.Reject)
         {
-            return (0.95, "CpeVersionRange");
+            return (0, string.Empty);
         }
 
-        // Range bounds.
-        var hasRange =
-            !string.IsNullOrWhiteSpace(config.VersionStartIncluding) ||
-            !string.IsNullOrWhiteSpace(config.VersionStartExcluding) ||
-            !string.IsNullOrWhiteSpace(config.VersionEndIncluding) ||
-            !string.IsNullOrWhiteSpace(config.VersionEndExcluding);
+        var productSignal = entry.ProductTokens.Any(t => !GenericTokens.Contains(t) && serviceTokens.Contains(t));
+        var vendorMatched = entry.VendorTokens.Any(serviceTokens.Contains);
 
-        if (version != null && hasRange && InRange(version, config))
+        if (productSignal)
         {
-            return (0.85, "CpeVersionRange");
+            double baseScore;
+            string type;
+            switch (verdict)
+            {
+                case VerdictKind.Exact: baseScore = 0.95; type = "CpeVersionRange"; break;
+                case VerdictKind.Range: baseScore = 0.85; type = "CpeVersionRange"; break;
+                default: baseScore = 0.50; type = "CpeProductOnly"; break;
+            }
+            if (vendorMatched)
+            {
+                baseScore = Math.Min(0.98, baseScore + 0.03);
+            }
+            return (baseScore, type);
         }
 
-        // Product matched but the version could not be compared on one side.
-        if (version == null || (configVersion == null && !hasRange))
+        if (vendorMatched)
         {
-            return (0.50, "CpeProductOnly");
+            // Vendor matched but product did not — a weaker signal.
+            var baseScore = verdict switch
+            {
+                VerdictKind.Exact => 0.65,
+                VerdictKind.Range => 0.55,
+                _ => 0.30
+            };
+            return (baseScore, "CpeVendorOnly");
         }
 
         return (0, string.Empty);
     }
 
-    private static bool InRange(Version version, CveConfiguration config)
+    private enum VerdictKind { Exact, Range, Unknown, Reject }
+
+    /// <summary>
+    /// Compares a service version against a config's version/range. Returns Reject when both sides
+    /// have comparable version info that does NOT match (avoids flagging patched versions).
+    /// </summary>
+    private static VerdictKind VersionVerdict(CveConfiguration config, Version version)
     {
+        var configVersion = ParseVersion(config.Version);
         var startIncl = ParseVersion(config.VersionStartIncluding);
         var startExcl = ParseVersion(config.VersionStartExcluding);
         var endIncl = ParseVersion(config.VersionEndIncluding);
         var endExcl = ParseVersion(config.VersionEndExcluding);
+        var anyBound = startIncl != null || startExcl != null || endIncl != null || endExcl != null;
 
-        if (startIncl != null && version < startIncl) return false;
-        if (startExcl != null && version <= startExcl) return false;
-        if (endIncl != null && version > endIncl) return false;
-        if (endExcl != null && version >= endExcl) return false;
+        if (version != null && configVersion != null && version == configVersion)
+        {
+            return VerdictKind.Exact;
+        }
+        if (version != null && anyBound && InRange(version, startIncl, startExcl, endIncl, endExcl))
+        {
+            return VerdictKind.Range;
+        }
+        if (version == null || (configVersion == null && !anyBound))
+        {
+            return VerdictKind.Unknown;
+        }
+        return VerdictKind.Reject;
+    }
 
-        // At least one bound must exist to count as a range hit.
-        return startIncl != null || startExcl != null || endIncl != null || endExcl != null;
+    private static bool InRange(Version v, Version startIncl, Version startExcl, Version endIncl, Version endExcl)
+    {
+        if (startIncl != null && v < startIncl) return false;
+        if (startExcl != null && v <= startExcl) return false;
+        if (endIncl != null && v > endIncl) return false;
+        if (endExcl != null && v >= endExcl) return false;
+        return true;
     }
 
     // ----- Index ----------------------------------------------------------
 
-    private async Task<Dictionary<string, List<CveConfiguration>>> BuildProductIndexAsync(CancellationToken ct)
+    private async Task<Dictionary<string, List<ConfigEntry>>> BuildFullIndexAsync(CancellationToken ct)
     {
         var configs = await _matchManager.Context.Set<CveConfiguration>()
             .Where(c => c.IsVulnerable)
@@ -297,54 +350,84 @@ public class CveMatchingService : ICveMatchingService
         return BuildIndex(configs);
     }
 
-    private static Dictionary<string, List<CveConfiguration>> BuildIndex(IEnumerable<CveConfiguration> configs)
+    /// <summary>
+    /// Inverted index: non-generic product/vendor token -> the configs that carry it.
+    /// </summary>
+    private static Dictionary<string, List<ConfigEntry>> BuildIndex(IEnumerable<CveConfiguration> configs)
     {
-        var index = new Dictionary<string, List<CveConfiguration>>(StringComparer.OrdinalIgnoreCase);
+        var index = new Dictionary<string, List<ConfigEntry>>(StringComparer.OrdinalIgnoreCase);
         foreach (var config in configs)
         {
-            var key = NormalizeProduct(config.Product);
-            if (string.IsNullOrEmpty(key))
+            var productTokens = TokenSet(config.Product);
+            var vendorTokens = TokenSet(config.Vendor);
+            if (productTokens.Count == 0 && vendorTokens.Count == 0)
             {
                 continue;
             }
-            if (!index.TryGetValue(key, out var list))
+
+            var entry = new ConfigEntry { Config = config, ProductTokens = productTokens, VendorTokens = vendorTokens };
+
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var t in productTokens) keys.Add(t);
+            foreach (var t in vendorTokens) keys.Add(t);
+
+            foreach (var key in keys)
             {
-                list = new List<CveConfiguration>();
-                index[key] = list;
+                if (GenericTokens.Contains(key))
+                {
+                    continue;
+                }
+                if (!index.TryGetValue(key, out var list))
+                {
+                    list = new List<ConfigEntry>();
+                    index[key] = list;
+                }
+                list.Add(entry);
             }
-            list.Add(config);
         }
         return index;
     }
 
     // ----- Parsing helpers ------------------------------------------------
 
-    /// <summary>Normalize a product name to a comparable token (lowercased, noise stripped).</summary>
-    internal static string NormalizeProduct(string raw)
+    /// <summary>
+    /// Tokenize a product/vendor/banner string into normalized tokens, expanding known aliases.
+    /// Version numbers are stripped; tokens of length 1 are dropped.
+    /// </summary>
+    internal static HashSet<string> TokenSet(string raw)
     {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return string.Empty;
+            return set;
         }
 
-        // Drop a trailing version from the name, lowercase, split on non-alphanumerics.
         var withoutVersion = VersionRegex.Replace(raw, " ");
-        var tokens = Regex.Split(withoutVersion.ToLowerInvariant(), @"[^a-z0-9]+")
-            .Where(t => t.Length > 1 && !NoiseTokens.Contains(t))
-            .ToList();
-        return tokens.Count == 0 ? string.Empty : string.Join("_", tokens);
+        var normalized = Regex.Replace(withoutVersion.ToLowerInvariant(), @"[^a-z0-9]+", "_").Trim('_');
+        foreach (var token in normalized.Split('_', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.Length <= 1)
+            {
+                continue;
+            }
+            set.Add(token);
+            if (ProductAliases.TryGetValue(token, out var aliases))
+            {
+                foreach (var alias in aliases)
+                {
+                    set.Add(alias);
+                }
+            }
+        }
+        return set;
     }
 
-    /// <summary>Loose product comparison: equality or either-direction containment of tokens.</summary>
-    private static bool ProductsMatch(string serviceProduct, string configProduct)
+    private static string BuildMatchedProduct(CveConfiguration config)
     {
-        if (serviceProduct.Equals(configProduct, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-        // Token containment (e.g. "apache_http" vs "http_server" share "http").
-        return serviceProduct.Contains(configProduct, StringComparison.OrdinalIgnoreCase) ||
-               configProduct.Contains(serviceProduct, StringComparison.OrdinalIgnoreCase);
+        var vendor = config.Vendor ?? string.Empty;
+        var product = config.Product ?? string.Empty;
+        var combined = string.IsNullOrEmpty(vendor) ? product : $"{vendor}/{product}";
+        return combined.Length > 200 ? combined.Substring(0, 200) : combined;
     }
 
     /// <summary>Parse a dotted numeric version out of free text; null if none found.</summary>
@@ -360,5 +443,12 @@ public class CveMatchingService : ICveMatchingService
             return null;
         }
         return Version.TryParse(match.Value, out var version) ? version : null;
+    }
+
+    private sealed class ConfigEntry
+    {
+        public CveConfiguration Config { get; init; }
+        public HashSet<string> ProductTokens { get; init; }
+        public HashSet<string> VendorTokens { get; init; }
     }
 }
