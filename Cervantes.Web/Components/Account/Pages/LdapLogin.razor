@@ -1,4 +1,5 @@
 @page "/Account/LdapLogin"
+@using Cervantes.Contracts
 @using Cervantes.IFR.Ldap
 @using Cervantes.Web.Components.Layout
 @using Cervantes.Web.Localization
@@ -7,6 +8,7 @@
 
 @inject IdentityRedirectManager RedirectManager
 @inject ILdapService LdapService
+@inject IOrganizationManager OrganizationManager
 @inject IStringLocalizer<Resource> localizer
 
 <PageTitle>@localizer["login"] | Cervantes</PageTitle>
@@ -15,7 +17,7 @@
     <MudStack>
     <MudItem xs="12">
         <div class="d-flex justify-center">
-            <img src="img/logo.png" Style="width: 100px; height: 100px;"/>
+            <img src="@(string.IsNullOrEmpty(orgLogoPath) ? "img/logo.png" : orgLogoPath)" Style="width: 100px; height: 100px; object-fit: scale-down;"/>
         </div>
     </MudItem>
 
@@ -102,6 +104,7 @@
 
     private string username = string.Empty;
     private string password = string.Empty;
+    private string? orgLogoPath;
 
     protected override System.Threading.Tasks.Task OnInitializedAsync()
     {
@@ -109,7 +112,17 @@
         {
             RedirectManager.RedirectTo("/Account/Login");
         }
-        
+
+        // The logo is cosmetic: fall back to the bundled image rather than block the login page.
+        try
+        {
+            orgLogoPath = OrganizationManager.GetAll().FirstOrDefault()?.ImagePath;
+        }
+        catch
+        {
+            orgLogoPath = null;
+        }
+
         return System.Threading.Tasks.Task.CompletedTask;
     }
 }
