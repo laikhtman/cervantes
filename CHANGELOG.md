@@ -15,6 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   field, localization (en/es), and the matching filter in `CveSubscriptionManager`.
   Requires applying the new migration to the database. ([#14](https://github.com/laikhtman/cervantes/issues/14))
 
+### Security
+
+- Fixed LDAP filter injection on the authentication path: the username from the login form
+  (and the user DN used for group lookups) were interpolated into LDAP search filters via
+  `string.Format` without escaping. `LdapService` now escapes `\ * ( )` and NUL per RFC 4515
+  before building `UserSearchFilter`/`GroupSearchFilter`, preventing filter metacharacters from
+  altering query semantics (user enumeration / auth-logic bypass). This also fixes group
+  lookups for legitimate DNs containing parentheses. ([#4](https://github.com/laikhtman/cervantes/issues/4))
+
 ### Fixed
 
 - Audit records for inserted rows now record the acting user's id. The `EntityState.Added`
