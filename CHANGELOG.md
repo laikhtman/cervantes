@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed `ChecklistExecutionManager.BulkUpdateStatus` firing `SaveChangesAsync()` without
+  awaiting it once per affected checklist: `UpdateChecklistCompletion` is now `async Task`,
+  every call (and the save inside it) is awaited, eliminating concurrent operations on the
+  same `DbContext` (*"A second operation was started on this context instance…"*) and
+  silently lost completion/status updates. ([#13](https://github.com/laikhtman/cervantes/issues/13))
 - Hardened the Nmap parser (`NmapParser`) against `NullReferenceException` on valid scan
   output: hosts missing a `status` element, hosts with no usable `address` (now preferring a
   non-MAC address), and ports missing `portid` are skipped gracefully instead of aborting the

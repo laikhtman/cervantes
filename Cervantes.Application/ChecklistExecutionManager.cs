@@ -1,6 +1,7 @@
 using Cervantes.Contracts;
 using Cervantes.CORE.Entities;
 using Microsoft.EntityFrameworkCore;
+using Task = System.Threading.Tasks.Task;
 
 namespace Cervantes.Application;
 
@@ -67,20 +68,20 @@ public class ChecklistExecutionManager : GenericManager<ChecklistExecution>, ICh
         // Update completion percentage for all affected checklists
         foreach (var checklistId in affectedChecklists)
         {
-            UpdateChecklistCompletion(checklistId);
+            await UpdateChecklistCompletion(checklistId);
         }
 
         return executions.Count;
     }
 
-    private void UpdateChecklistCompletion(Guid checklistId)
+    private async Task UpdateChecklistCompletion(Guid checklistId)
     {
-        var checklist = Context.Set<Checklist>().FirstOrDefault(c => c.Id == checklistId);
+        var checklist = await Context.Set<Checklist>().FirstOrDefaultAsync(c => c.Id == checklistId);
         if (checklist == null) return;
 
-        var executions = Context.Set<ChecklistExecution>()
+        var executions = await Context.Set<ChecklistExecution>()
             .Where(e => e.ChecklistId == checklistId)
-            .ToList();
+            .ToListAsync();
 
         if (!executions.Any())
         {
@@ -112,6 +113,6 @@ public class ChecklistExecutionManager : GenericManager<ChecklistExecution>, ICh
         }
 
         checklist.ModifiedDate = DateTime.UtcNow;
-        Context.SaveChangesAsync();
+        await Context.SaveChangesAsync();
     }
 }
