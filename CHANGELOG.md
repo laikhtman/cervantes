@@ -12,3 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   check (`projectUserManager.VerifyUser`) was computed but its deny branch was commented
   out, allowing any user with `ReportsRead` to read reports of any project (IDOR). The
   check is now enforced and returns an empty result for non-members. ([#1](https://github.com/laikhtman/cervantes/issues/1))
+- Restricted `ApiKeysController.GetByUser` to the `Admin` permission. It was guarded only
+  by `[Authorize]`, letting any authenticated user enumerate another user's API-key
+  records (prefix, name, expiry, last-used, revocation state) by supplying an arbitrary
+  `userId`. ([#2](https://github.com/laikhtman/cervantes/issues/2))

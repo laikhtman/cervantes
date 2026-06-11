@@ -28,7 +28,7 @@ public class ApiKeysController : ControllerBase
 
     // List API keys for a specific user (for internal use or admin APIs)
     [HttpGet("user/{userId}")]
-    [Authorize]
+    [HasPermission(Permissions.Admin)]
     public IEnumerable<ApiKey> GetByUser(string userId)
     {
         return _apiKeyManager.Context.Set<ApiKey>()
