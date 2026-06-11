@@ -40,8 +40,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   confirmation dialog (new `confirmDelete*Message` resource keys in en/es; other languages
   fall back to English).
 
+### Changed
+
+- Accessibility improvements in the app chrome: the drawer toggle, global search button,
+  language selector, and the five social/documentation icon buttons in both layouts now have
+  `aria-label`/`title` attributes (they were icon-only with no accessible name), and the
+  logo images in the layouts and login pages now carry alt text.
+
 ### Fixed
 
+- Client contact e-mails in the Clients grid now link with `mailto:` — previously the raw
+  address was used as the href, producing a broken relative link.
 - Hardened the global search dialog (app bar) in `MainLayout`/`WorkspaceLayout`: the
   "no results" empty state now actually shows after a search with no hits (previously any
   completed search rendered an empty results list forever, because the visibility check

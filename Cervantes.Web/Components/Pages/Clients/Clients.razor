@@ -80,7 +80,7 @@
                 <PropertyColumn Property="x => x.ContactName" Title="@localizer["contactName"]"/>
                 <PropertyColumn Property="x => x.ContactEmail" Title="@localizer["contactEmail"]">
                     <CellTemplate>
-                        <MudLink href="@context.Item.ContactEmail" Typo="Typo.body2">@context.Item.ContactEmail</MudLink>
+                        <MudLink Href="@($"mailto:{context.Item.ContactEmail}")" Typo="Typo.body2">@context.Item.ContactEmail</MudLink>
                     </CellTemplate>
                 </PropertyColumn>
                 <PropertyColumn Property="x => x.ContactPhone" Title="@localizer["contactPhone"]"/>
