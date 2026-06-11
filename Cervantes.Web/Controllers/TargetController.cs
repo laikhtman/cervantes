@@ -9,6 +9,7 @@ using Cervantes.CORE.ViewModel;
 using Cervantes.CORE.ViewModels;
 using Cervantes.IFR.File;
 using Cervantes.IFR.Parsers.Nmap;
+using Cervantes.IFR.Subdomain;
 using Cervantes.Web.Helpers;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -34,6 +35,7 @@ public class TargetController : ControllerBase
     private INmapParser nmapParser = null;
     private ITargetCustomFieldManager targetCustomFieldManager = null;
     private ITargetCustomFieldValueManager targetCustomFieldValueManager = null;
+    private ISubdomainService subdomainService = null;
     private readonly IWebHostEnvironment env;
     private IHttpContextAccessor HttpContextAccessor;
     private string aspNetUserId;
@@ -50,7 +52,8 @@ public class TargetController : ControllerBase
         IProjectManager projectManager, IProjectUserManager projectUserManager, ILogger<TargetController> logger,
         IProjectAttachmentManager projectAttachmentManager, INmapParser nmapParser, IWebHostEnvironment env,
         IHttpContextAccessor HttpContextAccessor, IFileCheck fileCheck, Sanitizer sanitizer,
-        ITargetCustomFieldManager targetCustomFieldManager, ITargetCustomFieldValueManager targetCustomFieldValueManager)
+        ITargetCustomFieldManager targetCustomFieldManager, ITargetCustomFieldValueManager targetCustomFieldValueManager,
+        ISubdomainService subdomainService)
     {
         this.targetManager = targetManager;
         this.targetServicesManager = targetServicesManager;
@@ -65,6 +68,7 @@ public class TargetController : ControllerBase
         this.sanitizer = sanitizer;
         this.targetCustomFieldManager = targetCustomFieldManager;
         this.targetCustomFieldValueManager = targetCustomFieldValueManager;
+        this.subdomainService = subdomainService;
     }
 
     [HttpGet]
@@ -796,9 +800,89 @@ public class TargetController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating custom field values for target {TargetId}. User: {UserId}", 
+            _logger.LogError(ex, "Error updating custom field values for target {TargetId}. User: {UserId}",
                 targetId, aspNetUserId);
             return BadRequest("Error updating custom field values");
         }
+    }
+
+    /// <summary>
+    /// Whether subdomain discovery is enabled (feature flag + at least one provider key configured).
+    /// </summary>
+    /// <returns>True if the feature can be used.</returns>
+    [HttpGet]
+    [Route("subdomains/enabled")]
+    [HasPermission(Permissions.TargetsRead)]
+    public bool SubdomainDiscoveryEnabled()
+    {
+        return subdomainService.Enabled;
+    }
+
+    /// <summary>
+    /// Enumerate subdomains for a target's domain and import the new ones as Hostname targets.
+    /// </summary>
+    /// <param name="targetId">Source target ID (must be a URL or Hostname target).</param>
+    /// <returns>The discovery result counts.</returns>
+    [HttpPost]
+    [Route("{targetId}/subdomains/discover")]
+    [HasPermission(Permissions.TargetsAdd)]
+    public async Task<IActionResult> DiscoverSubdomains(Guid targetId)
+    {
+        try
+        {
+            var target = targetManager.GetById(targetId);
+            if (target == null)
+            {
+                return NotFound($"Target with ID {targetId} not found");
+            }
+
+            var user = projectUserManager.VerifyUser(target.ProjectId.Value, aspNetUserId);
+            if (user == null)
+            {
+                return BadRequest("Access denied: User does not have permission to access this project");
+            }
+
+            var result = await subdomainService.DiscoverAndImportAsync(targetId, aspNetUserId);
+            _logger.LogInformation(
+                "Subdomain discovery for target {TargetId} finished with status {Status}. User: {UserId}",
+                targetId, result.Status, aspNetUserId);
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An error ocurred discovering subdomains for target {TargetId}. User: {UserId}",
+                targetId, aspNetUserId);
+            return StatusCode(500, "An error occurred while discovering subdomains. Please try again later.");
+        }
+    }
+
+    /// <summary>
+    /// Component helper: subdomain discovery feature flag, callable in-process from Blazor.
+    /// </summary>
+    [NonAction]
+    public bool IsSubdomainDiscoveryEnabled() => subdomainService.Enabled;
+
+    /// <summary>
+    /// Component helper: run subdomain discovery for a target, verifying project access first.
+    /// Callable in-process from Blazor (MVC filters do not run on direct calls).
+    /// </summary>
+    /// <param name="targetId">Source target ID.</param>
+    /// <returns>The discovery result, or a Disabled/TargetNotFound/NotEligible status.</returns>
+    [NonAction]
+    public async Task<SubdomainImportResult> RunSubdomainDiscovery(Guid targetId)
+    {
+        var target = targetManager.GetById(targetId);
+        if (target == null)
+        {
+            return new SubdomainImportResult { Status = SubdomainImportStatus.TargetNotFound };
+        }
+
+        var user = projectUserManager.VerifyUser(target.ProjectId.Value, aspNetUserId);
+        if (user == null)
+        {
+            return new SubdomainImportResult { Status = SubdomainImportStatus.NotEligible };
+        }
+
+        return await subdomainService.DiscoverAndImportAsync(targetId, aspNetUserId);
     }
 }

@@ -13,6 +13,7 @@ using Cervantes.CORE.Entities;
 using Cervantes.DAL;
 using Cervantes.IFR;
 using Cervantes.IFR.ChecklistMigration;
+using Cervantes.IFR.Subdomain;
 using Cervantes.Server.Helpers;
 using Cervantes.Web.AuthPermissions;
 using Cervantes.Web.Authentication;
@@ -464,6 +465,22 @@ using (var scope = app.Services.CreateScope())
         "DeleteOldLogs",
         () => _LogManager.DeleteAllAsync(),
         time.ToString());
+}
+
+// Scheduled subdomain enumeration (opt-in: requires Enabled + ScheduledEnabled).
+var subdomainConfig = builder.Configuration.GetSection("SubdomainConfiguration").Get<SubdomainConfiguration>()
+                      ?? new SubdomainConfiguration();
+if (subdomainConfig.Enabled && subdomainConfig.ScheduledEnabled)
+{
+    var subdomainSchedule = string.IsNullOrWhiteSpace(subdomainConfig.Schedule) ? "0 3 * * *" : subdomainConfig.Schedule;
+    RecurringJob.AddOrUpdate<ISubdomainService>(
+        "SubdomainEnumeration",
+        x => x.RunScheduledAsync(CancellationToken.None),
+        subdomainSchedule);
+}
+else
+{
+    RecurringJob.RemoveIfExists("SubdomainEnumeration");
 }
 
 

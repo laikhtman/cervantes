@@ -249,6 +249,21 @@
     <data name="targets" xml:space="preserve">
         <value>Targets</value>
     </data>
+    <data name="discoverSubdomains" xml:space="preserve">
+        <value>Discover Subdomains</value>
+    </data>
+    <data name="subdomainDiscoveryComplete" xml:space="preserve">
+        <value>Subdomain discovery complete</value>
+    </data>
+    <data name="subdomainDiscoverySelectEligible" xml:space="preserve">
+        <value>Select at least one URL or Hostname target</value>
+    </data>
+    <data name="subdomainDiscoveryRunning" xml:space="preserve">
+        <value>Discovering subdomains…</value>
+    </data>
+    <data name="subdomainDiscoveryError" xml:space="preserve">
+        <value>An error occurred while discovering subdomains</value>
+    </data>
     <data name="addTarget" xml:space="preserve">
         <value>Add Target</value>
     </data>
