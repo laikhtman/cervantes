@@ -3336,4 +3336,7 @@ Option 3</value>
     <data name="draftSavedAgo" xml:space="preserve"><value>Draft saved {0}s ago</value></data>
     <data name="draftError" xml:space="preserve"><value>Error saving draft</value></data>
     <data name="draftReady" xml:space="preserve"><value>Draft ready</value></data>
+    <data name="confirmDeleteAllLogsMessage" xml:space="preserve"><value>Are you sure you want to delete ALL system logs? This action cannot be undone.</value></data>
+    <data name="confirmDeleteAccountMessage" xml:space="preserve"><value>Are you sure you want to delete your account and all your personal data? This action cannot be undone.</value></data>
+    <data name="confirmDeleteAvatarMessage" xml:space="preserve"><value>Are you sure you want to delete your avatar?</value></data>
 </root>
