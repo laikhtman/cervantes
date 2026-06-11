@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed WSTG report generation appending footer components into the body builder
+  (`sbBody`) instead of the footer builder (`sbFooter`). Footer content was duplicated
+  into the body and the `{{FooterComponents}}` placeholder was left empty. ([#12](https://github.com/laikhtman/cervantes/issues/12))
 - Fixed a `NullReferenceException` in the EF Core audit interceptor
   (`ApplicationDbContext.BeforeSaveChanges`) when `Connection.RemoteIpAddress` is null.
   The NRE ran inside `SaveChangesAsync` and aborted the entire audited write; the IP is
