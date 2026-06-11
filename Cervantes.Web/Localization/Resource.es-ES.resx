@@ -3361,4 +3361,5 @@ Opción 3</value>
     <data name="confirmDeleteAllLogsMessage" xml:space="preserve"><value>¿Está seguro de que desea eliminar TODOS los registros del sistema? Esta acción no se puede deshacer.</value></data>
     <data name="confirmDeleteAccountMessage" xml:space="preserve"><value>¿Está seguro de que desea eliminar su cuenta y todos sus datos personales? Esta acción no se puede deshacer.</value></data>
     <data name="confirmDeleteAvatarMessage" xml:space="preserve"><value>¿Está seguro de que desea eliminar su avatar?</value></data>
+    <data name="searchError" xml:space="preserve"><value>¡Se ha producido un error al buscar!</value></data>
 </root>

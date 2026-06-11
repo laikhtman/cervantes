@@ -3339,4 +3339,5 @@ Option 3</value>
     <data name="confirmDeleteAllLogsMessage" xml:space="preserve"><value>Are you sure you want to delete ALL system logs? This action cannot be undone.</value></data>
     <data name="confirmDeleteAccountMessage" xml:space="preserve"><value>Are you sure you want to delete your account and all your personal data? This action cannot be undone.</value></data>
     <data name="confirmDeleteAvatarMessage" xml:space="preserve"><value>Are you sure you want to delete your avatar?</value></data>
+    <data name="searchError" xml:space="preserve"><value>An error occurred while searching!</value></data>
 </root>

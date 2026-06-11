@@ -68,7 +68,7 @@ public class SearchController: ControllerBase
                     Projects = projectManager.GetAll()
                         .Where(x => x.Name.Contains(search) || x.Description.Contains(search)).ToList(),
                     Reports = reportManager.GetAll()
-                        .Where(x => x.Name.Contains(search) || x.Description.Contains(search)),
+                        .Where(x => x.Name.Contains(search) || x.Description.Contains(search)).ToList(),
                     Targets = targetManager.GetAll()
                         .Where(x => x.Name.Contains(search) || x.Description.Contains(search)).ToList(),
                     TargetServices = targetServicesManager.GetAll()
@@ -79,7 +79,7 @@ public class SearchController: ControllerBase
                         .ToList(),
                     Vulns = vulnManager.GetAll().Where(x =>
                         x.Name.Contains(search) || x.Description.Contains(search) || x.Impact.Contains(search) ||
-                        x.Remediation.Contains(search)),
+                        x.Remediation.Contains(search)).ToList(),
                     VulnCategories = vulnCategoryManager.GetAll().Where(x => x.Name.Contains(search)).ToList(),
 
                 };
@@ -89,7 +89,7 @@ public class SearchController: ControllerBase
             }
             else
             {
-                return null;
+                return new SearchViewModel();
             }
         }
         catch (Exception ex)
