@@ -110,7 +110,7 @@ public partial class Users: ComponentBase
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
-        if (element.FullName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.FullName?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
 
         return false;

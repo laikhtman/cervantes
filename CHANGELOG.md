@@ -42,6 +42,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed `NullReferenceException` crashes when typing in the search/quick-filter box of the
+  **Logs**, **Clients**, **Projects**, and **Users** data grids: the filter lambdas called
+  `.Contains` on optional fields that are frequently null (log `Exception`/`StackTrace`/`Url`,
+  client contact details, project `Client` navigation property). The Logs row-color function
+  had the same issue with `Level`. All accesses are now null-conditional.
 - The uploaded **Organization logo** is now actually displayed by the application. The
   navigation drawer headers in `MainLayout` and `WorkspaceLayout` and the `Login`/`LdapLogin`
   pages were hardcoded to the bundled `img/logo*.png` assets and never bound to

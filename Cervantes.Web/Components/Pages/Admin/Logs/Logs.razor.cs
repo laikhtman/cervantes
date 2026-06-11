@@ -43,19 +43,19 @@ public partial class Logs: ComponentBase
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
-        if (element.Exception.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Exception?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.Message.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Message?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.Level.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Level?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.Logger.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Logger?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.Url.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Url?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.CreatedOn.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.CreatedOn?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
-        if (element.StackTrace.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.StackTrace?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
             return true;
         return false;
     };
@@ -98,13 +98,13 @@ public partial class Logs: ComponentBase
     
     private Func<Log, int, string> _rowStyleFunc => (x, i) =>
     {
-        if (x.Level.Contains("Error"))
+        if (x.Level?.Contains("Error") == true)
             return "background-color:#ff3f5f"; // Red for Error
-        if (x.Level.Contains("Info"))
+        if (x.Level?.Contains("Info") == true)
             return "background-color:#4a86ff"; // Blue for Info
-        if (x.Level.Contains("Warning"))
+        if (x.Level?.Contains("Warning") == true)
             return "background-color:#ffb545";
-        if (x.Level.Contains("Trace"))
+        if (x.Level?.Contains("Trace") == true)
             return "background-color:#7e6fff";
         return "";
     };
