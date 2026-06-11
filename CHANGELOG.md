@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed a `NullReferenceException` in the EF Core audit interceptor
+  (`ApplicationDbContext.BeforeSaveChanges`) when `Connection.RemoteIpAddress` is null.
+  The NRE ran inside `SaveChangesAsync` and aborted the entire audited write; the IP is
+  now read with a null-conditional operator. ([#8](https://github.com/laikhtman/cervantes/issues/8))
 - Fixed a `NullReferenceException` in `KnowledgeBaseController.DeleteCategory` when deleting
   a non-existent category id. The code null-checked `category.Name` instead of `category`,
   so a missing id threw instead of returning a clean error. ([#7](https://github.com/laikhtman/cervantes/issues/7))
