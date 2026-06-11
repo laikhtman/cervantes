@@ -82,7 +82,7 @@ public class LdapService : ILdapService
             connection.Credential = new NetworkCredential(_config.AdminUsername, _config.AdminPassword);
             connection.Bind();
 
-            var searchFilter = string.Format(_config.UserSearchFilter, username);
+            var searchFilter = string.Format(_config.UserSearchFilter, EscapeLdapFilter(username));
             var searchRequest = new SearchRequest(
                 _config.UserDN,
                 searchFilter,
@@ -151,7 +151,7 @@ public class LdapService : ILdapService
             connection.Credential = new NetworkCredential(_config.AdminUsername, _config.AdminPassword);
             connection.Bind();
 
-            var searchFilter = string.Format(_config.GroupSearchFilter, userDN);
+            var searchFilter = string.Format(_config.GroupSearchFilter, EscapeLdapFilter(userDN));
             var searchRequest = new SearchRequest(
                 _config.GroupSearchBase,
                 searchFilter,
@@ -203,6 +203,46 @@ public class LdapService : ILdapService
         }
     }
 
+    /// <summary>
+    /// Escapes a value for safe inclusion in an LDAP search filter per RFC 4515
+    /// (backslash, asterisk, parentheses and NUL are replaced by \XX hex escapes).
+    /// </summary>
+    private static string EscapeLdapFilter(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        var sb = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            switch (c)
+            {
+                case '\\':
+                    sb.Append("\\5c");
+                    break;
+                case '*':
+                    sb.Append("\\2a");
+                    break;
+                case '(':
+                    sb.Append("\\28");
+                    break;
+                case ')':
+                    sb.Append("\\29");
+                    break;
+                case '\0':
+                    sb.Append("\\00");
+                    break;
+                default:
+                    sb.Append(c);
+                    break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
     private LdapConnection CreateConnection()
     {
         var identifier = new LdapDirectoryIdentifier(_config.Server, _config.Port);
@@ -224,7 +264,7 @@ public class LdapService : ILdapService
     {
         try
         {
-            var searchFilter = string.Format(_config.UserSearchFilter, username);
+            var searchFilter = string.Format(_config.UserSearchFilter, EscapeLdapFilter(username));
             _logger.LogInformation("Searching for user {Username} with filter {Filter} in base {Base}", username, searchFilter, _config.UserDN);
             
             var searchRequest = new SearchRequest(
